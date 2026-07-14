@@ -15,7 +15,6 @@
 
         <activity
             android:name=".MainActivity"
-            android:configChanges="orientation|screenSize|keyboardHidden"
             android:exported="true"
             android:hardwareAccelerated="true">
             <intent-filter>
@@ -23,6 +22,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".WebViewActivity"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:exported="false"
+            android:hardwareAccelerated="true"
+            android:parentActivityName=".MainActivity" />
     </application>
 
 </manifest>

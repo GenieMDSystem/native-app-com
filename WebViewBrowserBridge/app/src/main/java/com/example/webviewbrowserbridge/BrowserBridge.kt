@@ -12,90 +12,154 @@ import android.widget.Toast
 import org.json.JSONObject
 
 /**
- * Action types for native [BrowserBridge.callback] messages.
+ * Callback types from JavaScript → native.
  *
- * JS sends JSON:
- *   NativeApp.callback(JSON.stringify({ type: 1, data: "https://example.com" }))
- *   NativeApp.callback(JSON.stringify({ type: 2, data: "Hello from WebView" }))
+ * type 1 WAITING_ROOM:
+ *   { type: 1, data: { url, success, openInBrowser } }
+ *
+ * type 2 SCHEDULE:
+ *   { type: 2, data: { success } }
+ *
+ * type 3 OPEN_SCHEDULE_LINK:
+ *   { type: 3, data: { url, success, openInBrowser } }
  */
 enum class BridgeAction(val type: Int) {
-    OPEN_LINK(1),
-    SHOW_TOAST(2);
+    WAITING_ROOM(1),
+    SCHEDULE(2),
+    OPEN_SCHEDULE_LINK(3);
 
     companion object {
         fun from(type: Int): BridgeAction? = entries.find { it.type == type }
     }
 }
 
-/**
- * Payload shape from JavaScript:
- * `{ "type": number, "data": any }`
- */
-data class BridgeCallbackMessage(
-    val type: Int,
-    val data: Any?
+data class UrlBridgeData(
+    val url: String,
+    val success: Boolean,
+    val openInBrowser: Boolean
 )
+
+data class ScheduleBridgeData(
+    val success: Boolean
+)
+
+interface BridgeCallbackHost {
+    fun loadUrlInWebView(url: String)
+    fun finishWithResult()
+}
 
 /**
  * JavaScript bridge exposed as [INTERFACE_NAME] ("NativeApp").
  *
- * Single entry point: [callback] with `{ type, data }`.
+ *   NativeApp.callback(JSON.stringify({ type, data }))
  */
-class BrowserBridge(private val context: Context) {
+class BrowserBridge(
+    private val context: Context,
+    private val host: BridgeCallbackHost
+) {
 
     companion object {
         const val INTERFACE_NAME = "NativeApp"
         private const val TAG = "WebViewBridge"
     }
 
-    /**
-     * Native callback from WebView.
-     *
-     * @param json JSON string: `{ "type": number, "data": any }`
-     */
+    private val mainHandler = Handler(Looper.getMainLooper())
+
     @JavascriptInterface
     fun callback(json: String) {
-        val message = parseCallbackMessage(json) ?: return
-        val action = BridgeAction.from(message.type)
-        if (action == null) {
-            Log.d(TAG, "Error: unknown callback type=${message.type} data=${message.data}")
-            return
-        }
+        Log.d(TAG, "Native callback received: $json")
+        try {
+            val root = JSONObject(json)
+            val type = root.getInt("type")
+            val data = root.optJSONObject("data")
+            val action = BridgeAction.from(type)
 
-        Log.d(TAG, "Native callback type=${message.type} ($action) data=${message.data}")
-
-        when (action) {
-            BridgeAction.OPEN_LINK -> openLink(message.data?.toString().orEmpty())
-            BridgeAction.SHOW_TOAST -> showToastMessage(message.data?.toString().orEmpty())
-        }
-    }
-
-    private fun parseCallbackMessage(json: String): BridgeCallbackMessage? {
-        return try {
-            val obj = JSONObject(json)
-            if (!obj.has("type")) {
-                Log.d(TAG, "Error: callback missing 'type': $json")
-                return null
+            if (action == null) {
+                Log.d(TAG, "Error: unknown callback type=$type")
+                toast("Unknown bridge action: $type")
+                return
             }
-            BridgeCallbackMessage(
-                type = obj.getInt("type"),
-                // "data" can be string, number, boolean, object, array, or null
-                data = if (obj.isNull("data")) null else obj.get("data")
-            )
+            if (data == null) {
+                Log.d(TAG, "Error: missing data object for type=$type")
+                toast("Invalid bridge payload")
+                return
+            }
+
+            when (action) {
+                BridgeAction.WAITING_ROOM -> handleUrlAction(action, parseUrlData(data))
+                BridgeAction.SCHEDULE -> handleSchedule(parseScheduleData(data))
+                BridgeAction.OPEN_SCHEDULE_LINK -> handleUrlAction(action, parseUrlData(data))
+            }
         } catch (e: Exception) {
             Log.d(TAG, "Error: invalid callback JSON: $json", e)
-            null
+            toast("Invalid callback JSON")
         }
     }
 
-    private fun openLink(url: String) {
-        Log.d(TAG, "Browser launch requested: $url")
-
-        if (!isValidHttpUrl(url)) {
-            Log.d(TAG, "Error: rejected invalid URL from OPEN_LINK: $url")
+    private fun handleUrlAction(action: BridgeAction, payload: UrlBridgeData?) {
+        if (payload == null) {
+            Log.d(TAG, "Error: invalid url payload for $action")
+            toast("Invalid ${action.name.lowercase()} payload")
             return
         }
 
+        Log.d(
+            TAG,
+            "$action success=${payload.success} openInBrowser=${payload.openInBrowser} url=${payload.url}"
+        )
+
+        if (!payload.success) {
+            toast("${actionLabel(action)} failed")
+            return
+        }
+
+        if (!isValidHttpUrl(payload.url)) {
+            Log.d(TAG, "Error: rejected invalid URL: ${payload.url}")
+            toast("Invalid URL")
+            return
+        }
+
+        mainHandler.post {
+            if (payload.openInBrowser) {
+                openInBrowser(payload.url)
+            } else {
+                host.loadUrlInWebView(payload.url)
+            }
+        }
+    }
+
+    private fun handleSchedule(payload: ScheduleBridgeData?) {
+        if (payload == null) {
+            Log.d(TAG, "Error: invalid schedule payload")
+            toast("Invalid schedule payload")
+            return
+        }
+
+        Log.d(TAG, "SCHEDULE success=${payload.success}")
+        mainHandler.post {
+            if (payload.success) {
+                toast("Schedule completed")
+                host.finishWithResult()
+            } else {
+                toast("Schedule was not completed")
+            }
+        }
+    }
+
+    private fun parseUrlData(data: JSONObject): UrlBridgeData {
+        return UrlBridgeData(
+            url = data.optString("url", ""),
+            success = data.optBoolean("success", false),
+            openInBrowser = data.optBoolean("openInBrowser", false)
+        )
+    }
+
+    private fun parseScheduleData(data: JSONObject): ScheduleBridgeData {
+        return ScheduleBridgeData(success = data.optBoolean("success", false))
+    }
+
+    private fun openInBrowser(url: String) {
+        Log.d(TAG, "Browser launch requested: $url")
         try {
             val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -104,15 +168,10 @@ class BrowserBridge(private val context: Context) {
             Log.d(TAG, "Browser launch success: $url")
         } catch (e: ActivityNotFoundException) {
             Log.d(TAG, "Error: no browser available for URL: $url", e)
+            toast("No browser available")
         } catch (e: Exception) {
             Log.d(TAG, "Error: failed to launch browser for URL: $url", e)
-        }
-    }
-
-    private fun showToastMessage(message: String) {
-        Log.d(TAG, "SHOW_TOAST message: $message")
-        Handler(Looper.getMainLooper()).post {
-            Toast.makeText(context.applicationContext, message, Toast.LENGTH_SHORT).show()
+            toast("Failed to open browser")
         }
     }
 
@@ -122,9 +181,20 @@ class BrowserBridge(private val context: Context) {
             val uri = Uri.parse(url)
             val scheme = uri.scheme?.lowercase()
             (scheme == "http" || scheme == "https") && !uri.host.isNullOrBlank()
-        } catch (e: Exception) {
-            Log.d(TAG, "Error: URL parse failed: $url", e)
+        } catch (_: Exception) {
             false
+        }
+    }
+
+    private fun actionLabel(action: BridgeAction): String = when (action) {
+        BridgeAction.WAITING_ROOM -> "Waiting room"
+        BridgeAction.SCHEDULE -> "Schedule"
+        BridgeAction.OPEN_SCHEDULE_LINK -> "Schedule link"
+    }
+
+    private fun toast(message: String) {
+        mainHandler.post {
+            Toast.makeText(context.applicationContext, message, Toast.LENGTH_SHORT).show()
         }
     }
 }

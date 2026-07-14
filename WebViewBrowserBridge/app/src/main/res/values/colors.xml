@@ -5,4 +5,7 @@
     <color name="primary_dark">#0D47A1</color>
     <color name="accent">#26A69A</color>
     <color name="white">#FFFFFF</color>
+    <color name="home_background">#F5F7FA</color>
+    <color name="home_title">#0F172A</color>
+    <color name="home_subtitle">#64748B</color>
 </resources>

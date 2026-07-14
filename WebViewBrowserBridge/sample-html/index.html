@@ -3,186 +3,47 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>WebView Browser Bridge</title>
+    <title>Native Callback Samples</title>
     <style>
-        :root {
-            --bg: #0f172a;
-            --card: #1e293b;
-            --text: #f8fafc;
-            --muted: #94a3b8;
-            --accent: #38bdf8;
-            --accent-2: #34d399;
-            --danger: #f87171;
-        }
-
-        * { box-sizing: border-box; }
-
-        body {
-            margin: 0;
-            min-height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: radial-gradient(circle at top, #1e3a5f 0%, var(--bg) 55%);
-            color: var(--text);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 24px;
-        }
-
-        main {
-            width: 100%;
-            max-width: 420px;
-            background: var(--card);
-            border-radius: 16px;
-            padding: 28px 24px;
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.35);
-        }
-
-        h1 {
-            margin: 0 0 8px;
-            font-size: 1.5rem;
-            font-weight: 700;
-        }
-
-        .subtitle {
-            margin: 0 0 20px;
-            color: var(--muted);
-            font-size: 0.95rem;
-            line-height: 1.45;
-        }
-
-        .url-box {
-            background: rgba(15, 23, 42, 0.65);
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 10px;
-            padding: 12px 14px;
-            margin-bottom: 24px;
-            word-break: break-all;
-            font-size: 0.85rem;
-            color: var(--accent);
-        }
-
-        .url-label {
-            display: block;
-            color: var(--muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            margin-bottom: 6px;
-        }
-
-        button {
-            width: 100%;
-            border: none;
-            border-radius: 10px;
-            padding: 14px 16px;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            margin-bottom: 12px;
-        }
-
-        button.primary {
-            background: var(--accent);
-            color: #0f172a;
-        }
-
-        button.secondary {
-            background: transparent;
-            color: var(--accent-2);
-            border: 1px solid var(--accent-2);
-        }
-
-        button:active {
-            opacity: 0.85;
-        }
-
-        .status {
-            margin-top: 8px;
-            font-size: 0.85rem;
-            color: var(--muted);
-            min-height: 1.2em;
-        }
-
-        .status.error { color: var(--danger); }
-        .status.ok { color: var(--accent-2); }
+        body { font-family: -apple-system, sans-serif; margin: 0; padding: 24px; background: #0f172a; color: #f8fafc; max-width: 480px; }
+        h1 { font-size: 1.35rem; }
+        h2 { font-size: 1.05rem; margin-top: 28px; color: #38bdf8; }
+        pre { background: #1e293b; padding: 12px; border-radius: 8px; overflow: auto; font-size: 0.75rem; }
+        p { color: #94a3b8; line-height: 1.45; }
     </style>
 </head>
 <body>
-<main>
-    <h1>WebView Browser Bridge</h1>
-    <p class="subtitle">
-        Host this page on any HTTPS server, then set
-        <code>START_URL</code> in <code>MainActivity.kt</code> to that URL.
-    </p>
+    <h1>Native callback contract</h1>
+    <p>Host these pages (or call the same payloads from your real web app). Android expects:</p>
 
-    <div class="url-box">
-        <span class="url-label">Current URL</span>
-        <span id="currentUrl"></span>
-    </div>
+    <h2>Type 1 — Waiting room</h2>
+    <pre>{
+  "type": 1,
+  "data": {
+    "url": "https://example.com",
+    "success": true,
+    "openInBrowser": false
+  }
+}</pre>
 
-    <button class="primary" type="button" onclick="openInBrowser()">
-        Open in Mobile Browser
-    </button>
+    <h2>Type 2 — Schedule</h2>
+    <pre>{
+  "type": 2,
+  "data": {
+    "success": true
+  }
+}</pre>
 
-    <button class="secondary" type="button" onclick="showNativeToast()">
-        Show Native Toast
-    </button>
+    <h2>Type 3 — Open schedule link</h2>
+    <pre>{
+  "type": 3,
+  "data": {
+    "url": "https://example.com/schedule/1",
+    "success": true,
+    "openInBrowser": true
+  }
+}</pre>
 
-    <p id="status" class="status" aria-live="polite"></p>
-</main>
-
-<script>
-    // Must match BridgeAction.type on Android:
-    // 1 = OPEN_LINK, 2 = SHOW_TOAST
-    const BridgeAction = {
-        OPEN_LINK: 1,
-        SHOW_TOAST: 2
-    };
-
-    (function init() {
-        document.getElementById("currentUrl").textContent = window.location.href;
-        const available = !!(window.NativeApp && window.NativeApp.callback);
-        setStatus(
-            available
-                ? "Native bridge available."
-                : "Native bridge not detected (open inside the Android app WebView).",
-            available ? "ok" : "error"
-        );
-    })();
-
-    function setStatus(text, type) {
-        const el = document.getElementById("status");
-        el.textContent = text;
-        el.className = "status" + (type ? " " + type : "");
-    }
-
-    /**
-     * Sends { type: number, data: any } to native via NativeApp.callback.
-     */
-    function callNative(type, data) {
-        if (window.NativeApp && window.NativeApp.callback) {
-            window.NativeApp.callback(JSON.stringify({ type: type, data: data }));
-            return true;
-        }
-        alert("Native bridge not available.");
-        setStatus("Native bridge not available.", "error");
-        return false;
-    }
-
-    function openInBrowser() {
-        const url = window.location.href;
-
-        if (callNative(BridgeAction.OPEN_LINK, url)) {
-            setStatus("Requested native browser open for: " + url, "ok");
-        }
-    }
-
-    function showNativeToast() {
-        if (callNative(BridgeAction.SHOW_TOAST, "Hello from WebView")) {
-            setStatus("Requested native toast.", "ok");
-        }
-    }
-</script>
+    <p>Send via: <code>NativeApp.callback(JSON.stringify(payload))</code></p>
 </body>
 </html>

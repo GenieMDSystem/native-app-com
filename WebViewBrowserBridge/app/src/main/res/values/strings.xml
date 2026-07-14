@@ -2,4 +2,10 @@
 <resources>
     <string name="app_name">WebView Browser Bridge</string>
     <string name="page_load_error">Page failed to load: %1$s</string>
+
+    <string name="home_title">Care Home</string>
+    <string name="home_subtitle">Choose an option to continue in WebView</string>
+    <string name="btn_visit_doctor">Visit Doctor Now</string>
+    <string name="btn_schedule_visit">Schedule Visit Now</string>
+    <string name="btn_schedules_list">Schedules List</string>
 </resources>
