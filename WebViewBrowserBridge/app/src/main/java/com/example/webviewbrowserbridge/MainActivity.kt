@@ -41,7 +41,7 @@ class MainActivity : AppCompatActivity() {
          * without hosting changes. Point this at your hosted page when ready.
          */
         // private const val START_URL = "file:///android_asset/sample_bridge.html"
-        private const val START_URL = "https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent?patientLanguageID=1&patientOEMID=100&ignoreLocalStorage=true&dependent=true&fromWebView=and"
+        private const val START_URL = "https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent?patientLanguageID=1&patientOEMID=100&ignoreLocalStorage=true&dependent=true&fromWebView=android"
     }
 
     private lateinit var webView: WebView
