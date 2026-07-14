@@ -121,7 +121,10 @@ class BrowserBridge(
 
         mainHandler.post {
             if (payload.openInBrowser) {
+                // Open external browser, then return to the native home screen
                 openInBrowser(payload.url)
+                Log.d(TAG, "$action opened browser — navigating back to main screen")
+                host.finishWithResult()
             } else {
                 host.loadUrlInWebView(payload.url)
             }
