@@ -133,9 +133,16 @@
 </main>
 
 <script>
+    // Must match BridgeAction.type on Android:
+    // 1 = OPEN_LINK, 2 = SHOW_TOAST
+    const BridgeAction = {
+        OPEN_LINK: 1,
+        SHOW_TOAST: 2
+    };
+
     (function init() {
         document.getElementById("currentUrl").textContent = window.location.href;
-        const available = !!(window.NativeApp && window.NativeApp.openInBrowser);
+        const available = !!(window.NativeApp && window.NativeApp.invoke);
         setStatus(
             available
                 ? "Native bridge available."
@@ -150,6 +157,16 @@
         el.className = "status" + (type ? " " + type : "");
     }
 
+    function callNative(actionType, payload) {
+        if (window.NativeApp && window.NativeApp.invoke) {
+            window.NativeApp.invoke(actionType, payload);
+            return true;
+        }
+        alert("Native bridge not available.");
+        setStatus("Native bridge not available.", "error");
+        return false;
+    }
+
     function openInBrowser() {
         // Prefer the page URL when hosted (http/https). Bundled file://
         // assets use https://example.com so native URL validation succeeds.
@@ -158,22 +175,14 @@
             url = "https://example.com";
         }
 
-        if (window.NativeApp && window.NativeApp.openInBrowser) {
-            window.NativeApp.openInBrowser(url);
+        if (callNative(BridgeAction.OPEN_LINK, url)) {
             setStatus("Requested native browser open for: " + url, "ok");
-        } else {
-            alert("Native bridge not available.");
-            setStatus("Native bridge not available.", "error");
         }
     }
 
     function showNativeToast() {
-        if (window.NativeApp && window.NativeApp.showToast) {
-            window.NativeApp.showToast("Hello from WebView");
+        if (callNative(BridgeAction.SHOW_TOAST, "Hello from WebView")) {
             setStatus("Requested native toast.", "ok");
-        } else {
-            alert("Native bridge not available.");
-            setStatus("Native bridge not available.", "error");
         }
     }
 </script>

@@ -40,7 +40,8 @@ class MainActivity : AppCompatActivity() {
          * The bundled asset ships the sample bridge UI so the app works offline
          * without hosting changes. Point this at your hosted page when ready.
          */
-        private const val START_URL = "file:///android_asset/sample_bridge.html"
+        // private const val START_URL = "file:///android_asset/sample_bridge.html"
+        private const val START_URL = "https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent?patientLanguageID=1&patientOEMID=100&ignoreLocalStorage=true&dependent=true&fromWebView=and"
     }
 
     private lateinit var webView: WebView
