@@ -9,19 +9,17 @@ import android.os.Looper
 import android.util.Log
 import android.webkit.JavascriptInterface
 import android.widget.Toast
+import org.json.JSONObject
 
 /**
- * Action types accepted by [BrowserBridge.invoke] from JavaScript.
+ * Action types for native [BrowserBridge.callback] messages.
  *
- * JS calls:
- *   NativeApp.invoke(1, "https://example.com")  // OPEN_LINK
- *   NativeApp.invoke(2, "Hello from WebView")    // SHOW_TOAST
+ * JS sends JSON:
+ *   NativeApp.callback(JSON.stringify({ type: 1, data: "https://example.com" }))
+ *   NativeApp.callback(JSON.stringify({ type: 2, data: "Hello from WebView" }))
  */
 enum class BridgeAction(val type: Int) {
-    /** Open [payload] in the device browser. */
     OPEN_LINK(1),
-
-    /** Show [payload] as an Android Toast. */
     SHOW_TOAST(2);
 
     companion object {
@@ -30,10 +28,18 @@ enum class BridgeAction(val type: Int) {
 }
 
 /**
- * JavaScript bridge exposed to the WebView as [INTERFACE_NAME].
+ * Payload shape from JavaScript:
+ * `{ "type": number, "data": any }`
+ */
+data class BridgeCallbackMessage(
+    val type: Int,
+    val data: Any?
+)
+
+/**
+ * JavaScript bridge exposed as [INTERFACE_NAME] ("NativeApp").
  *
- * Prefer the single entry point [invoke] with a [BridgeAction] type code.
- * Methods without [@JavascriptInterface] are not exposed (API 17+).
+ * Single entry point: [callback] with `{ type, data }`.
  */
 class BrowserBridge(private val context: Context) {
 
@@ -43,24 +49,42 @@ class BrowserBridge(private val context: Context) {
     }
 
     /**
-     * Unified bridge entry point.
+     * Native callback from WebView.
      *
-     * @param actionType [BridgeAction.type] — `1` open link, `2` show toast
-     * @param payload URL for [BridgeAction.OPEN_LINK], message for [BridgeAction.SHOW_TOAST]
+     * @param json JSON string: `{ "type": number, "data": any }`
      */
     @JavascriptInterface
-    fun invoke(actionType: Int, payload: String) {
-        val action = BridgeAction.from(actionType)
+    fun callback(json: String) {
+        val message = parseCallbackMessage(json) ?: return
+        val action = BridgeAction.from(message.type)
         if (action == null) {
-            Log.d(TAG, "Error: unknown bridge actionType=$actionType payload=$payload")
+            Log.d(TAG, "Error: unknown callback type=${message.type} data=${message.data}")
             return
         }
 
-        Log.d(TAG, "Bridge invoke action=$action ($actionType) payload=$payload")
+        Log.d(TAG, "Native callback type=${message.type} ($action) data=${message.data}")
 
         when (action) {
-            BridgeAction.OPEN_LINK -> openLink(payload)
-            BridgeAction.SHOW_TOAST -> showToastMessage(payload)
+            BridgeAction.OPEN_LINK -> openLink(message.data?.toString().orEmpty())
+            BridgeAction.SHOW_TOAST -> showToastMessage(message.data?.toString().orEmpty())
+        }
+    }
+
+    private fun parseCallbackMessage(json: String): BridgeCallbackMessage? {
+        return try {
+            val obj = JSONObject(json)
+            if (!obj.has("type")) {
+                Log.d(TAG, "Error: callback missing 'type': $json")
+                return null
+            }
+            BridgeCallbackMessage(
+                type = obj.getInt("type"),
+                // "data" can be string, number, boolean, object, array, or null
+                data = if (obj.isNull("data")) null else obj.get("data")
+            )
+        } catch (e: Exception) {
+            Log.d(TAG, "Error: invalid callback JSON: $json", e)
+            null
         }
     }
 
@@ -87,13 +111,11 @@ class BrowserBridge(private val context: Context) {
 
     private fun showToastMessage(message: String) {
         Log.d(TAG, "SHOW_TOAST message: $message")
-        // Toast must run on the main thread; JavascriptInterface runs off the UI thread.
         Handler(Looper.getMainLooper()).post {
             Toast.makeText(context.applicationContext, message, Toast.LENGTH_SHORT).show()
         }
     }
 
-    /** Accepts only http/https URLs with a non-blank host. */
     private fun isValidHttpUrl(url: String): Boolean {
         if (url.isBlank()) return false
         return try {

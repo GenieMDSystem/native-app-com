@@ -142,7 +142,7 @@
 
     (function init() {
         document.getElementById("currentUrl").textContent = window.location.href;
-        const available = !!(window.NativeApp && window.NativeApp.invoke);
+        const available = !!(window.NativeApp && window.NativeApp.callback);
         setStatus(
             available
                 ? "Native bridge available."
@@ -157,9 +157,12 @@
         el.className = "status" + (type ? " " + type : "");
     }
 
-    function callNative(actionType, payload) {
-        if (window.NativeApp && window.NativeApp.invoke) {
-            window.NativeApp.invoke(actionType, payload);
+    /**
+     * Sends { type: number, data: any } to native via NativeApp.callback.
+     */
+    function callNative(type, data) {
+        if (window.NativeApp && window.NativeApp.callback) {
+            window.NativeApp.callback(JSON.stringify({ type: type, data: data }));
             return true;
         }
         alert("Native bridge not available.");
