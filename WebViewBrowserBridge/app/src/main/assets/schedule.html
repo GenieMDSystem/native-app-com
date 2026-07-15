@@ -10,20 +10,20 @@
         p { color: #94a3b8; margin: 0 0 20px; }
         button { width: 100%; padding: 14px; margin-bottom: 12px; border: none; border-radius: 10px; font-size: 1rem; font-weight: 600; cursor: pointer; }
         .primary { background: #38bdf8; color: #0f172a; }
-        .secondary { background: transparent; color: #f87171; border: 1px solid #f87171; }
+        .secondary { background: transparent; color: #34d399; border: 1px solid #34d399; }
         .status { margin-top: 12px; font-size: 0.85rem; color: #94a3b8; word-break: break-all; }
         code { font-size: 0.75rem; color: #38bdf8; }
     </style>
 </head>
 <body>
     <h1>Schedule Visit</h1>
-    <p>Type <code>2</code> — schedule callback</p>
+    <p>Type <code>2</code> — close WebView and return to home when <code>success</code> or <code>close</code> is true</p>
 
-    <button class="primary" type="button" onclick="scheduleSuccess()">
-        Complete Schedule (success: true)
+    <button class="primary" type="button" onclick="closeWithSuccess()">
+        Close with success: true
     </button>
-    <button class="secondary" type="button" onclick="scheduleFail()">
-        Cancel Schedule (success: false)
+    <button class="secondary" type="button" onclick="closeWithCloseFlag()">
+        Close with close: true
     </button>
 
     <p id="status" class="status"></p>
@@ -41,18 +41,12 @@
         }
     }
 
-    function scheduleSuccess() {
-        callNative({
-            type: TYPE_SCHEDULE,
-            data: { success: true }
-        });
+    function closeWithSuccess() {
+        callNative({ type: TYPE_SCHEDULE, data: { success: true } });
     }
 
-    function scheduleFail() {
-        callNative({
-            type: TYPE_SCHEDULE,
-            data: { success: false }
-        });
+    function closeWithCloseFlag() {
+        callNative({ type: TYPE_SCHEDULE, data: { close: true } });
     }
 </script>
 </body>
