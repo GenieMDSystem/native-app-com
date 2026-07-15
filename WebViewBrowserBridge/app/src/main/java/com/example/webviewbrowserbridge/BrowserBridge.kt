@@ -17,8 +17,9 @@ import org.json.JSONObject
  * type 1 WAITING_ROOM:
  *   { type: 1, data: { url, success, openInBrowser } }
  *
- * type 2 SCHEDULE:
- *   { type: 2, data: { success } }
+ * type 2 SCHEDULE / CLOSE:
+ *   { type: 2, data: { success: true } }  — closes WebView, returns home
+ *   { type: 2, data: { close: true } }    — closes WebView, returns home
  *
  * type 3 OPEN_SCHEDULE_LINK:
  *   { type: 3, data: { url, success, openInBrowser } }
@@ -40,8 +41,12 @@ data class UrlBridgeData(
 )
 
 data class ScheduleBridgeData(
-    val success: Boolean
-)
+    val success: Boolean,
+    val close: Boolean
+) {
+    /** Close WebView and return to home when either flag is true. */
+    val shouldCloseWebView: Boolean get() = success || close
+}
 
 interface BridgeCallbackHost {
     fun loadUrlInWebView(url: String)
@@ -134,17 +139,17 @@ class BrowserBridge(
     private fun handleSchedule(payload: ScheduleBridgeData?) {
         if (payload == null) {
             Log.d(TAG, "Error: invalid schedule payload")
-            toast("Invalid schedule payload")
             return
         }
 
-        Log.d(TAG, "SCHEDULE success=${payload.success}")
+        Log.d(
+            TAG,
+            "SCHEDULE success=${payload.success} close=${payload.close} shouldClose=${payload.shouldCloseWebView}"
+        )
+
         mainHandler.post {
-            if (payload.success) {
-                toast("Schedule completed")
+            if (payload.shouldCloseWebView) {
                 host.finishWithResult()
-            } else {
-                toast("Schedule was not completed")
             }
         }
     }
@@ -158,7 +163,10 @@ class BrowserBridge(
     }
 
     private fun parseScheduleData(data: JSONObject): ScheduleBridgeData {
-        return ScheduleBridgeData(success = data.optBoolean("success", false))
+        return ScheduleBridgeData(
+            success = data.optBoolean("success", false),
+            close = data.optBoolean("close", false)
+        )
     }
 
     private fun openInBrowser(url: String) {

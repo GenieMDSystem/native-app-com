@@ -8,6 +8,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.webkit.ConsoleMessage
+import android.webkit.GeolocationPermissions
+import android.webkit.PermissionRequest
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -20,22 +22,18 @@ import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
-import com.google.android.material.appbar.MaterialToolbar
 
 /**
- * Full-screen WebView with [BrowserBridge] injected as NativeApp.
- * Opened from the home screen for Waiting Room / Schedule / Schedules List.
+ * Full-screen WebView (no top bar) with [BrowserBridge] injected as NativeApp.
  */
 class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
 
     companion object {
         private const val TAG = "WebViewBridge"
-        private const val EXTRA_TITLE = "extra_title"
         private const val EXTRA_URL = "extra_url"
 
-        fun createIntent(context: Context, title: String, url: String): Intent {
+        fun createIntent(context: Context, url: String): Intent {
             return Intent(context, WebViewActivity::class.java).apply {
-                putExtra(EXTRA_TITLE, title)
                 putExtra(EXTRA_URL, url)
             }
         }
@@ -43,28 +41,29 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
-    private lateinit var toolbar: MaterialToolbar
+    private lateinit var permissionHelper: WebViewPermissionHelper
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        permissionHelper = WebViewPermissionHelper(this)
+
         setContentView(R.layout.activity_webview)
 
-        val title = intent.getStringExtra(EXTRA_TITLE).orEmpty()
         val startUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
 
-        toolbar = findViewById(R.id.toolbar)
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
-
-        toolbar.title = title
-        toolbar.setNavigationOnClickListener { finish() }
 
         applySystemBarInsets()
         configureWebView()
         attachClients()
         injectJavaScriptBridge()
         setupBackNavigation()
+
+        // Ask once when WebView opens so camera/mic/location work without extra taps
+        permissionHelper.requestCommonPermissionsIfNeeded()
 
         Log.d(TAG, "WebViewActivity loading: $startUrl")
         webView.loadUrl(startUrl)
@@ -76,7 +75,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     }
 
     override fun finishWithResult() {
-        Log.d(TAG, "Bridge finished schedule flow — returning home")
+        Log.d(TAG, "Bridge closed WebView — returning to main screen")
         finish()
     }
 
@@ -100,6 +99,10 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             setSupportZoom(true)
             builtInZoomControls = true
             displayZoomControls = false
+            // Required for navigator.geolocation in WebView
+            setGeolocationEnabled(true)
+            // Allow audio/video playback without a user tap (optional; many telehealth flows need this)
+            mediaPlaybackRequiresUserGesture = false
         }
         if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true)
@@ -161,6 +164,25 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             override fun onProgressChanged(view: WebView?, newProgress: Int) {
                 progressBar.progress = newProgress
                 progressBar.visibility = if (newProgress in 1..99) View.VISIBLE else View.GONE
+            }
+
+            /**
+             * Grants camera / microphone when the page calls navigator.mediaDevices.getUserMedia().
+             */
+            override fun onPermissionRequest(request: PermissionRequest?) {
+                if (request == null) return
+                permissionHelper.onWebPermissionRequest(request)
+            }
+
+            /**
+             * Grants location when the page calls navigator.geolocation.
+             */
+            override fun onGeolocationPermissionsShowPrompt(
+                origin: String?,
+                callback: GeolocationPermissions.Callback?
+            ) {
+                if (callback == null) return
+                permissionHelper.onGeolocationRequest(origin, callback)
             }
 
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {

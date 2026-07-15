@@ -25,31 +25,22 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
             Log.d(TAG, "Home: Visit Doctor Now")
-            openWebView(
-                title = getString(R.string.btn_visit_doctor),
-                url = AppDestinations.VISIT_DOCTOR_URL
-            )
+            openWebView(AppDestinations.VISIT_DOCTOR_URL)
         }
 
         findViewById<Button>(R.id.btnScheduleVisit).setOnClickListener {
             Log.d(TAG, "Home: Schedule Visit Now")
-            openWebView(
-                title = getString(R.string.btn_schedule_visit),
-                url = AppDestinations.SCHEDULE_VISIT_URL
-            )
+            openWebView(AppDestinations.SCHEDULE_VISIT_URL)
         }
 
         findViewById<Button>(R.id.btnSchedulesList).setOnClickListener {
             Log.d(TAG, "Home: Schedules List")
-            openWebView(
-                title = getString(R.string.btn_schedules_list),
-                url = AppDestinations.SCHEDULES_LIST_URL
-            )
+            openWebView(AppDestinations.SCHEDULES_LIST_URL)
         }
     }
 
-    private fun openWebView(title: String, url: String) {
-        startActivity(WebViewActivity.createIntent(this, title, url))
+    private fun openWebView(url: String) {
+        startActivity(WebViewActivity.createIntent(this, url))
     }
 
     private fun applySystemBarInsets() {
