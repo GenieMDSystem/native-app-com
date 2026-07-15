@@ -4,12 +4,14 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.net.Uri
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -42,12 +44,14 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
     private lateinit var permissionHelper: WebViewPermissionHelper
+    private lateinit var fileChooserHelper: WebViewFileChooserHelper
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         permissionHelper = WebViewPermissionHelper(this)
+        fileChooserHelper = WebViewFileChooserHelper(this)
 
         setContentView(R.layout.activity_webview)
 
@@ -185,6 +189,24 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
                 permissionHelper.onGeolocationRequest(origin, callback)
             }
 
+            /**
+             * Required for &lt;input type="file"&gt; — opens gallery / file manager / camera.
+             */
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                if (webView == null || filePathCallback == null || fileChooserParams == null) {
+                    return false
+                }
+                return fileChooserHelper.onShowFileChooser(
+                    webView,
+                    filePathCallback,
+                    fileChooserParams
+                )
+            }
+
             override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
                 Log.d(
                     TAG,
@@ -213,6 +235,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     }
 
     override fun onDestroy() {
+        fileChooserHelper.cancel()
         webView.apply {
             loadUrl("about:blank")
             stopLoading()
