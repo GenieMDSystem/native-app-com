@@ -1,15 +1,18 @@
 package com.example.webviewbrowserbridge
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Button
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.webviewbrowserbridge.data.AppPreferences
 
 /**
- * Native home screen. Each button opens [WebViewActivity] with a destination URL.
+ * Home screen after login. Opens WebViews with URLs built from cached config + profile.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -17,25 +20,63 @@ class MainActivity : AppCompatActivity() {
         private const val TAG = "WebViewBridge"
     }
 
+    private lateinit var prefs: AppPreferences
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
 
+        prefs = AppPreferences(this)
+        val config = prefs.getConfig()
+        val session = prefs.getSession()
+
+        if (config == null) {
+            startActivity(Intent(this, SetupActivity::class.java))
+            finish()
+            return
+        }
+        if (session == null) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
+
+        setContentView(R.layout.activity_main)
         applySystemBarInsets()
 
+        val profile = session.profile
+
+        findViewById<TextView>(R.id.txtWelcome).text =
+            getString(R.string.home_welcome, profile.displayName)
+
+        findViewById<TextView>(R.id.txtDomainInfo).text =
+            getString(R.string.home_domain_info, config.baseUrl, config.folder)
+
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
-            Log.d(TAG, "Home: Visit Doctor Now")
-            openWebView(AppDestinations.VISIT_DOCTOR_URL)
+            val url = AppDestinations.visitDoctorUrl(config, profile)
+            Log.d(TAG, "Visit Doctor URL: $url")
+            openWebView(url)
         }
 
         findViewById<Button>(R.id.btnScheduleVisit).setOnClickListener {
-            Log.d(TAG, "Home: Schedule Visit Now")
-            openWebView(AppDestinations.SCHEDULE_VISIT_URL)
+            val url = AppDestinations.scheduleVisitUrl(config, profile)
+            Log.d(TAG, "Schedule Visit URL: $url")
+            openWebView(url)
         }
 
         findViewById<Button>(R.id.btnSchedulesList).setOnClickListener {
-            Log.d(TAG, "Home: Schedules List")
-            openWebView(AppDestinations.SCHEDULES_LIST_URL)
+            val url = AppDestinations.schedulesListUrl(config, profile)
+            Log.d(TAG, "Schedules List URL: $url")
+            openWebView(url)
+        }
+
+        findViewById<Button>(R.id.btnLogout).setOnClickListener {
+            prefs.clearSession()
+            startActivity(
+                Intent(this, LoginActivity::class.java).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                }
+            )
+            finish()
         }
     }
 

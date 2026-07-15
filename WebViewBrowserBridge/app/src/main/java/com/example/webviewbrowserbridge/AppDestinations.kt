@@ -1,26 +1,56 @@
 package com.example.webviewbrowserbridge
 
+import com.example.webviewbrowserbridge.data.AppConfig
+import com.example.webviewbrowserbridge.data.UserProfile
+
 /**
- * Configurable entry URLs for each home-screen destination.
- * Point these at your hosted pages when ready.
+ * Builds WebView URLs from saved environment + logged-in profile.
  */
 object AppDestinations {
-    /**
-     * Visit Doctor Now → Waiting Room WebView.
-     * Swap to your hosted / GenieMD waiting-room URL when ready, e.g.:
-     * "https://dev.geniemd.net/neurofinity/assessment/#/protocol/..."
-     */
-    const val VISIT_DOCTOR_URL =
-        // "file:///android_asset/waiting_room.html"
-        "https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent?patientLanguageID=1&patientOEMID=100&ignoreLocalStorage=true&dependent=true&fromWebView=android";
 
-    /** Schedule Visit Now → Schedule flow WebView */
-    const val SCHEDULE_VISIT_URL =
-        // "file:///android_asset/schedule.html"
-        "https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent?patientLanguageID=1&patientOEMID=100&ignoreLocalStorage=true&dependent=true&fromWebView=android";
+  /**
+   * Visit Doctor — assessment consent flow.
+   *
+   * https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
+   *   ?patientLanguageID={languageId}&patientOEMID={oemID}&ignoreLocalStorage=true&dependent=true&fromWebView=android
+   */
+  fun visitDoctorUrl(config: AppConfig, profile: UserProfile): String {
+    return buildString {
+      append(config.baseUrl)
+      append("/")
+      append(config.folder)
+      append("/assessment/#/protocol/")
+      append(profile.clinicID)
+      append("/consent/")
+      append(profile.userID)
+      append("?patientLanguageID=")
+      append(profile.languageId)
+      append("&patientOEMID=")
+      append(profile.oemID)
+      append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android")
+    }
+  }
 
-    /** Schedules List → list WebView */
-    const val SCHEDULES_LIST_URL =
-        // "file:///android_asset/schedules_list.html"
-        "https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent?patientLanguageID=1&patientOEMID=100&ignoreLocalStorage=true&dependent=true&fromWebView=android";
+  /** Schedule visit — RPM shell (update path when your web team provides the exact route). */
+  fun scheduleVisitUrl(config: AppConfig, profile: UserProfile): String {
+    return buildString {
+      append(config.baseUrl)
+      append("/")
+      append(config.folder)
+      append("/assessment/#/protocol/")
+      append(profile.clinicID)
+      append("/consent/")
+      append(profile.userID)
+      append("?patientLanguageID=")
+      append(profile.languageId)
+      append("&patientOEMID=")
+      append(profile.oemID)
+      append("&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android")
+    }
+  }
+
+  /** Schedules list — RPM appointments (update path when your web team provides the exact route). */
+  fun schedulesListUrl(config: AppConfig, profile: UserProfile): String {
+    return "${config.baseUrl}/${config.folder}/rpm/#/appointments?patientLanguageID=${profile.languageId}&patientOEMID=${profile.oemID}&fromWebView=android"
+  }
 }

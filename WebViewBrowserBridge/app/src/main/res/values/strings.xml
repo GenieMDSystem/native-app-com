@@ -3,9 +3,33 @@
     <string name="app_name">WebView Browser Bridge</string>
     <string name="page_load_error">Page failed to load: %1$s</string>
 
+    <string name="default_subdomain">dev</string>
+    <string name="default_folder">neurofinity</string>
+
+    <string name="setup_title">Server Setup</string>
+    <string name="setup_subtitle">Configure your GenieMD environment (saved on this device)</string>
+    <string name="setup_subdomain_label">Subdomain</string>
+    <string name="setup_subdomain_helper">Full domain: https://{subdomain}.geniemd.net</string>
+    <string name="setup_folder_label">Folder</string>
+    <string name="setup_folder_helper">e.g. prod, neurofinity</string>
+    <string name="setup_save">Save &amp; Continue</string>
+    <string name="setup_validation_error">Subdomain and folder are required</string>
+    <string name="setup_saved">Environment saved</string>
+
+    <string name="login_title">Sign In</string>
+    <string name="login_domain_hint">%1$s / %2$s</string>
+    <string name="login_username">Username</string>
+    <string name="login_password">Password</string>
+    <string name="login_button">Login</string>
+    <string name="login_validation_error">Username and password are required</string>
+    <string name="login_generic_error">Login failed. Check network and credentials.</string>
+
+    <string name="home_welcome">Welcome, %1$s</string>
+    <string name="home_domain_info">%1$s / %2$s</string>
     <string name="home_title">Care Home</string>
     <string name="home_subtitle">Choose an option to continue in WebView</string>
     <string name="btn_visit_doctor">Visit Doctor Now</string>
     <string name="btn_schedule_visit">Schedule Visit Now</string>
     <string name="btn_schedules_list">Schedules List</string>
+    <string name="btn_logout">Logout</string>
 </resources>

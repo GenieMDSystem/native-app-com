@@ -16,21 +16,31 @@
         android:padding="24dp">
 
         <TextView
-            android:id="@+id/title"
+            android:id="@+id/txtWelcome"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="48dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/home_title"
+            android:layout_marginTop="32dp"
+            android:layout_marginBottom="4dp"
             android:textColor="@color/home_title"
-            android:textSize="28sp"
+            android:textSize="24sp"
             android:textStyle="bold"
-            android:gravity="center" />
+            android:gravity="center"
+            tools:text="Welcome, Jerry" />
+
+        <TextView
+            android:id="@+id/txtDomainInfo"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:textColor="@color/home_subtitle"
+            android:textSize="13sp"
+            android:gravity="center"
+            tools:text="https://dev.geniemd.net / neurofinity" />
 
         <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="40dp"
+            android:layout_marginBottom="32dp"
             android:text="@string/home_subtitle"
             android:textColor="@color/home_subtitle"
             android:textSize="15sp"
@@ -60,9 +70,18 @@
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="match_parent"
             android:layout_height="56dp"
+            android:layout_marginBottom="24dp"
             android:text="@string/btn_schedules_list"
             android:textAllCaps="false"
             android:textSize="16sp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnLogout"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="@string/btn_logout"
+            android:textAllCaps="false" />
 
     </LinearLayout>
 </ScrollView>
