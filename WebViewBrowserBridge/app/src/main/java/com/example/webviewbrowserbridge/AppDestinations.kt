@@ -51,6 +51,6 @@ object AppDestinations {
 
   /** Schedules list — RPM appointments (update path when your web team provides the exact route). */
   fun schedulesListUrl(config: AppConfig, profile: UserProfile): String {
-    return "${config.baseUrl}/${config.folder}/rpm/#/appointments?patientLanguageID=${profile.languageId}&patientOEMID=${profile.oemID}&fromWebView=android"
+    return "${config.baseUrl}/${config.folder}/rpm/#/webview/${profile.clinicID}/${profile.userID}/patient-schedule?fromWebView=android"
   }
 }
