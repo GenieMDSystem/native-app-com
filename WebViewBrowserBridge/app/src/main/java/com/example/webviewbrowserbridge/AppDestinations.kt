@@ -9,7 +9,7 @@ import com.example.webviewbrowserbridge.data.UserProfile
 object AppDestinations {
 
   /**
-   * Visit Doctor — assessment consent flow.
+   * waiting room url.
    *
    * https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
    *   ?patientLanguageID={languageId}&patientOEMID={oemID}&ignoreLocalStorage=true&dependent=true&fromWebView=android
@@ -31,7 +31,7 @@ object AppDestinations {
     }
   }
 
-  /** Schedule visit — RPM shell (update path when your web team provides the exact route). */
+  /** schedule a teleconsultation url. */
   fun scheduleVisitUrl(config: AppConfig, profile: UserProfile): String {
     return buildString {
       append(config.baseUrl)
@@ -49,7 +49,7 @@ object AppDestinations {
     }
   }
 
-  /** Schedules list — RPM appointments (update path when your web team provides the exact route). 
+  /** schedules list url.
    * 
    * https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/consent/{userID}/patient-schedule?fromWebView=android
   */
