@@ -41,8 +41,7 @@ class LoginActivity : AppCompatActivity() {
             return
         }
 
-        findViewById<TextView>(R.id.txtDomainHint).text =
-            getString(R.string.login_domain_hint, config.baseUrl, config.folder)
+        findViewById<TextView>(R.id.txtDomainHint).text = config.environmentUrl
 
         val inputUsername = findViewById<TextInputEditText>(R.id.inputUsername)
         val inputPassword = findViewById<TextInputEditText>(R.id.inputPassword)

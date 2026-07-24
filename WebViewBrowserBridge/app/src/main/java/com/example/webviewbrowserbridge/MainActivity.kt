@@ -48,8 +48,7 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.txtWelcome).text =
             getString(R.string.home_welcome, profile.displayName)
 
-        findViewById<TextView>(R.id.txtDomainInfo).text =
-            getString(R.string.home_domain_info, config.baseUrl, config.folder)
+        findViewById<TextView>(R.id.txtDomainInfo).text = config.environmentUrl
 
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
             val url = AppDestinations.visitDoctorUrl(config, profile)

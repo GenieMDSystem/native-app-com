@@ -34,7 +34,7 @@
             android:gravity="center"
             android:textColor="@color/home_subtitle"
             android:textSize="14sp"
-            tools:text="https://dev.geniemd.net / neurofinity" />
+            tools:text="https://mhc.geniemd.net/apps2" />
 
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"

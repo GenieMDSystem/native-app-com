@@ -11,5 +11,8 @@ data class AppConfig(
 ) {
     val baseUrl: String get() = "https://$subdomain.geniemd.net"
 
+    /** Display / path base, e.g. https://mhc.geniemd.net/apps2 */
+    val environmentUrl: String get() = "$baseUrl/$folder"
+
     val refererUrl: String get() = "$baseUrl/$folder/rpm/"
 }

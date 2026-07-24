@@ -35,7 +35,7 @@
             android:textColor="@color/home_subtitle"
             android:textSize="13sp"
             android:gravity="center"
-            tools:text="https://dev.geniemd.net / neurofinity" />
+            tools:text="https://mhc.geniemd.net/apps2" />
 
         <TextView
             android:layout_width="match_parent"
