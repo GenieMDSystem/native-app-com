@@ -15,10 +15,12 @@ Values come from:
 
 | Source | Fields |
 |--------|--------|
-| Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` |
+| Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` · `environmentUrl` = `https://{subdomain}.geniemd.net/{folder}` |
 | Profile (after login) | `clinicID`, `userID`, `languageId`, `oemID` |
 
 ### 1. Visit Doctor Now (Waiting Room)
+
+`AppDestinations.visitDoctorUrl(config, profile)`
 
 ```
 https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
@@ -27,12 +29,12 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &protocolName=Revamp%20TeleConsultation
   &dependent=true
   &fromWebView=android
-  &ignoreLocalStorage=true
+  &ignoreLocationCheck=true
 ```
 
-Built by: `AppDestinations.visitDoctorUrl(config, profile)`
-
 ### 2. Schedule Visit Now
+
+`AppDestinations.scheduleVisitUrl(config, profile)`
 
 ```
 https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
@@ -44,24 +46,104 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &ignoreLocationCheck=true
 ```
 
-Built by: `AppDestinations.scheduleVisitUrl(config, profile)`
-
 ### 3. Schedules List
+
+`AppDestinations.schedulesListUrl(config, profile)`
 
 ```
 https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patient-schedule
   ?fromWebView=android
 ```
 
-Built by: `AppDestinations.schedulesListUrl(config, profile)`
-
 ### Example
 
-With `subdomain=dev`, `folder=neurofinity`, `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`:
+With defaults `subdomain=mhc`, `folder=apps2`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`:
+
+**Visit Doctor:**
+```
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true
+```
+
+**Schedule Visit:**
+```
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true
+```
+
+**Schedules List:**
+```
+https://mhc.geniemd.net/apps2/rpm/#/webview/1000254/0b4a…/patient-schedule?fromWebView=android
+```
+
+---
+
+## Configuring for production / other environments
+
+Update URL building in `AppDestinations.kt` (and Setup defaults in `strings.xml` if needed).
+
+### Domain and folder
+
+On first launch (Setup screen), or by changing defaults:
+
+| Field | Sample (current) | Production example |
+|-------|------------------|--------------------|
+| Subdomain | `mhc` | your prod subdomain (e.g. `www`, `app`, clinic code) |
+| Folder | `apps2` | your prod folder (e.g. `apps`, `prod`) |
+
+Resulting base: `https://{subdomain}.geniemd.net/{folder}`
+
+Defaults live in `res/values/strings.xml`:
+
+```xml
+<string name="default_subdomain">mhc</string>
+<string name="default_folder">apps2</string>
+```
+
+Users can also enter production values on the Setup screen; they are saved in SharedPreferences.
+
+### `protocolName` — use the correct protocol title
+
+These query values must match the **exact protocol names** configured in your GenieMD / assessment backend:
+
+| Button | Current sample value | Notes |
+|--------|----------------------|--------|
+| Visit Doctor | `Revamp%20TeleConsultation` | URL-encoded; use your prod waiting-room / teleconsult protocol name |
+| Schedule Visit | `Revamp%20Scheudle%20a%20TeleConsultation` | URL-encoded; use your prod schedule protocol name |
+
+Change them in `AppDestinations.kt` where the query string is appended, for example:
+
+```kotlin
+// Visit Doctor — replace with your production protocol name
+append("&protocolName=Your%20Production%20TeleConsultation&...")
+
+// Schedule Visit — replace with your production schedule protocol name
+append("&protocolName=Your%20Production%20Schedule%20Name&...")
+```
+
+Spaces must be encoded as `%20`.
+
+### `dependent=true` — optional
+
+`&dependent=true` is appended today for Visit Doctor and Schedule Visit.
+
+- **Keep it** if the web flow should run in dependent mode.
+- **Remove it** if you do not want dependent behavior — simply do not append `&dependent=true` in `AppDestinations.kt`.
+
+Schedules List does not use `dependent`.
+
+### Android vs iOS — `fromWebView`
+
+| Platform | Query value |
+|----------|-------------|
+| Android (this app) | `fromWebView=android` |
+| iOS | `fromWebView=ios` |
+
+For an iOS WebView host, use the **same URL shapes** and only change:
 
 ```
-https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocalStorage=true
+fromWebView=android  →  fromWebView=ios
 ```
+
+Apply that change on all three links (Visit Doctor, Schedule Visit, Schedules List). The rest of the path and query params stay the same.
 
 ---
 
@@ -178,7 +260,7 @@ Launcher → Setup (first time) → Login → Home (3 buttons) → WebView
                                          type 2 close / logout
 ```
 
-- **Setup:** subdomain + folder (defaults `dev` / `prod`), saved in SharedPreferences  
+- **Setup:** subdomain + folder (defaults `mhc` / `apps2`), saved in SharedPreferences  
 - **Login:** ValidateLogin → Profile → stores `userID`, `clinicID`, `languageId`, `oemID`  
 - **Home:** builds the three URLs above and opens `WebViewActivity`  
 - **Logout:** clears session only; config remains  
