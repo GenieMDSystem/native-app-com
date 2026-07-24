@@ -27,7 +27,7 @@ object AppDestinations {
       append(profile.languageId)
       append("&patientOEMID=")
       append(profile.oemID)
-      append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android")
+      append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocalStorage=true")
     }
   }
 
@@ -45,7 +45,7 @@ object AppDestinations {
       append(profile.languageId)
       append("&patientOEMID=")
       append(profile.oemID)
-      append("&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android")
+      append("&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true")
     }
   }
 
