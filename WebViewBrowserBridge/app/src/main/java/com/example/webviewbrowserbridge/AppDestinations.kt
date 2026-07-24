@@ -49,7 +49,10 @@ object AppDestinations {
     }
   }
 
-  /** Schedules list — RPM appointments (update path when your web team provides the exact route). */
+  /** Schedules list — RPM appointments (update path when your web team provides the exact route). 
+   * 
+   * https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/consent/{userID}/patient-schedule?fromWebView=android
+  */
   fun schedulesListUrl(config: AppConfig, profile: UserProfile): String {
     return "${config.baseUrl}/${config.folder}/rpm/#/webview/${profile.clinicID}/${profile.userID}/patient-schedule?fromWebView=android"
   }
