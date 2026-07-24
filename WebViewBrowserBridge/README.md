@@ -1,187 +1,205 @@
 # WebViewBrowserBridge
 
-Kotlin sample app that demonstrates secure two-way communication between a **WebView** and native Android via a JavaScript interface named `NativeApp`.
+Kotlin Android app that:
 
-| Item | Value |
-|------|--------|
-| Language | Kotlin |
-| Min SDK | 24 |
-| Target / Compile SDK | 36 (Android 16, latest stable) |
-| Application ID | `com.example.webviewbrowserbridge` |
+1. Saves environment config (subdomain + folder) and user session
+2. Builds **three WebView URLs** from that data
+3. Hosts those pages in a native WebView with a **JavaScript bridge** (`NativeApp`)
 
 ---
 
-## Project structure
+## How the three links are constructed
+
+URL builders live in `AppDestinations.kt`.  
+Values come from:
+
+| Source | Fields |
+|--------|--------|
+| Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` |
+| Profile (after login) | `clinicID`, `userID`, `languageId`, `oemID` |
+
+### 1. Visit Doctor Now (Waiting Room)
 
 ```
-WebViewBrowserBridge/
-├── app/src/main/
-│   ├── AndroidManifest.xml
-│   ├── assets/sample_bridge.html      # Bundled demo page
-│   ├── java/.../MainActivity.kt       # WebView host
-│   ├── java/.../BrowserBridge.kt      # JavascriptInterface
-│   └── res/layout/activity_main.xml
-├── sample-html/index.html             # Hostable copy of the demo page
-└── README.md
+https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &protocolName=Revamp%20TeleConsultation
+  &dependent=true
+  &fromWebView=android
+  &ignoreLocalStorage=true
 ```
 
----
+Built by: `AppDestinations.visitDoctorUrl(config, profile)`
 
-## How to run
+### 2. Schedule Visit Now
 
-1. Open the `WebViewBrowserBridge` folder in Android Studio (Ladybug / Koala or newer recommended).
-2. Let Gradle sync (wrapper will download if needed).
-3. Run on an emulator or device (API 24+).
-
-The app loads the bundled asset page by default so both bridge buttons work immediately:
-
-- **Open in Mobile Browser** → calls `NativeApp.openInBrowser(...)` and launches Chrome/system browser with `https://example.com` (from the asset page) or the real page URL when hosted.
-- **Show Native Toast** → calls `NativeApp.showToast("Hello from WebView")`.
-
-Filter Logcat with tag **`WebViewBridge`**.
-
----
-
-## Configure the start URL
-
-In `MainActivity.kt`:
-
-```kotlin
-private const val START_URL = "file:///android_asset/sample_bridge.html"
+```
+https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &protocolName=Revamp%20Scheudle%20a%20TeleConsultation
+  &dependent=true
+  &fromWebView=android
+  &ignoreLocationCheck=true
 ```
 
-Examples:
+Built by: `AppDestinations.scheduleVisitUrl(config, profile)`
 
-```kotlin
-// Bundled demo (default)
-private const val START_URL = "file:///android_asset/sample_bridge.html"
+### 3. Schedules List
 
-// Any HTTPS site that uses the bridge
-private const val START_URL = "https://example.com"
-
-// Your hosted copy of sample-html/index.html
-private const val START_URL = "https://your-domain.com/webview-bridge/"
+```
+https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patient-schedule
+  ?fromWebView=android
 ```
 
----
+Built by: `AppDestinations.schedulesListUrl(config, profile)`
 
-## How the JavaScript bridge works
+### Example
 
-1. Native code creates a `BrowserBridge` instance and registers it on the WebView:
+With `subdomain=dev`, `folder=neurofinity`, `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`:
 
-   ```kotlin
-   webView.addJavascriptInterface(BrowserBridge(this), "NativeApp")
-   ```
-
-2. After that, JavaScript in any loaded page can call:
-
-   ```javascript
-   window.NativeApp.openInBrowser(url);
-   window.NativeApp.showToast("Hello from WebView");
-   ```
-
-3. The WebView runtime marshals those calls onto a background bridge thread into the annotated Kotlin methods. Those methods then run native Android APIs (`Intent`, `Toast`, logging, validation).
-
-4. There is no automatic “return value” channel for complex objects; prefer simple primitives/strings. To send data back to the page, evaluate JS from Kotlin with `webView.evaluateJavascript(...)`.
-
-```mermaid
-sequenceDiagram
-    participant Page as Web page (JS)
-    participant WV as WebView
-    participant Bridge as BrowserBridge
-    participant OS as Android OS
-
-    Page->>WV: NativeApp.openInBrowser(url)
-    WV->>Bridge: @JavascriptInterface openInBrowser
-    Bridge->>Bridge: Validate URL
-    Bridge->>OS: Intent ACTION_VIEW
-    OS-->>Page: External browser opens
+```
+https://dev.geniemd.net/neurofinity/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocalStorage=true
 ```
 
 ---
 
-## Why `@JavascriptInterface` is required
+## WebView native bridge
 
-On Android 4.2 (API 17)+, only methods annotated with `@JavascriptInterface` are exposed to JavaScript.
+The WebView injects a JavaScript interface named **`NativeApp`**.
 
-Without the annotation, the method is **not** callable from the page. This was introduced after a serious vulnerability where untrusted pages could reflectively access public methods on injected objects (including dangerous framework APIs). Always:
+Web pages call:
 
-- Annotate only the methods you intend to expose
-- Keep those methods small and carefully validated
-- Keep ProGuard rules that preserve annotated members (`proguard-rules.pro` is included)
+```javascript
+NativeApp.callback(JSON.stringify({ type: number, data: { ... } }));
+```
 
----
+Native handler: `BrowserBridge.callback(json)` in `BrowserBridge.kt`.
 
-## Security considerations
+### Callback types
 
-| Risk | Mitigation in this sample |
-|------|---------------------------|
-| Untrusted page calling native code | Only expose narrow methods (`openInBrowser`, `showToast`) |
-| Arbitrary URL / intent injection | Validate `http`/`https` and require a non-blank host before launching |
-| JavaScript enabled globally | Necessary for the bridge; only load trusted content when possible |
-| Obfuscation stripping methods | Keep rules for `@JavascriptInterface` methods |
-| Cleartext traffic | `usesCleartextTraffic="false"`; prefer HTTPS pages |
-| Mixed content | `MIXED_CONTENT_COMPATIBILITY_MODE` for legacy subresources |
+#### Type `1` — Waiting room
 
-**Recommendations for production**
-
-- Prefer an allowlist of origins before injecting the interface (inject only after verifying `url`).
-- Do not expose file I/O, reflection, or arbitrary Intent APIs.
-- Treat every string from JS as hostile input.
-- Consider disabling `WebView.setWebContentsDebuggingEnabled` in release builds.
-
----
-
-## Using the bridge from any website
-
-Any page loaded inside this WebView can use the bridge once `NativeApp` is injected:
-
-```html
-<script>
-  function openInBrowser() {
-    const url = window.location.href;
-
-    if (window.NativeApp && window.NativeApp.openInBrowser) {
-      window.NativeApp.openInBrowser(url);
-    } else {
-      alert("Native bridge not available.");
-    }
+```json
+{
+  "type": 1,
+  "data": {
+    "url": "https://example.com",
+    "success": true,
+    "openInBrowser": true
   }
-
-  function showNativeToast() {
-    if (window.NativeApp && window.NativeApp.showToast) {
-      window.NativeApp.showToast("Hello from WebView");
-    } else {
-      alert("Native bridge not available.");
-    }
-  }
-</script>
+}
 ```
 
-Always feature-detect `window.NativeApp` so the same HTML still works in a normal desktop browser (with a graceful fallback).
+| Field | Behavior |
+|-------|----------|
+| `success: false` | Show error toast; do nothing else |
+| `openInBrowser: true` | Open `url` in the system browser, then close WebView → home |
+| `openInBrowser: false` | Load `url` inside the same WebView |
 
-Host `sample-html/index.html` on any static host (GitHub Pages, S3, nginx, etc.), then set `START_URL` to that HTTPS URL.
+#### Type `2` — Close WebView (return home)
+
+```json
+{
+  "type": 2,
+  "data": { "success": true }
+}
+```
+
+or:
+
+```json
+{
+  "type": 2,
+  "data": { "close": true }
+}
+```
+
+If `success` **or** `close` is `true`, the WebView closes and the app returns to the home screen.
+
+#### Type `3` — Open schedule link
+
+```json
+{
+  "type": 3,
+  "data": {
+    "url": "https://example.com/schedule/1",
+    "success": true,
+    "openInBrowser": true
+  }
+}
+```
+
+Same rules as type `1` (browser vs WebView, then return home when opening the browser).
+
+### Why `@JavascriptInterface`?
+
+Only methods annotated with `@JavascriptInterface` are callable from JavaScript (API 17+). This limits exposure and avoids reflecting arbitrary native methods into the page.
+
+### How to use from any loaded page
+
+```javascript
+function sendToNative(type, data) {
+  if (window.NativeApp && window.NativeApp.callback) {
+    window.NativeApp.callback(JSON.stringify({ type: type, data: data }));
+  } else {
+    console.warn("Native bridge not available");
+  }
+}
+
+// Close WebView → home
+sendToNative(2, { close: true });
+
+// Open link in mobile browser, then go home
+sendToNative(1, {
+  url: "https://example.com",
+  success: true,
+  openInBrowser: true
+});
+```
+
+Always check `window.NativeApp` so the same page can run in a normal browser without crashing.
+
+### Security notes
+
+- Only expose a narrow callback API (types 1–3).
+- Validate URLs (`http` / `https` with a host) before opening.
+- Prefer loading trusted origins only.
+- Keep ProGuard rules for `@JavascriptInterface` methods if minify is enabled.
 
 ---
 
-## Permissions
+## App flow (context)
 
-Only `android.permission.INTERNET` is declared — required for remote `http`/`https` WebView loads. Local `file:///android_asset/` pages do not need it, but keeping it allows switching `START_URL` to a remote host without further changes.
+```
+Launcher → Setup (first time) → Login → Home (3 buttons) → WebView
+                                      ↑______________________|
+                                         type 2 close / logout
+```
 
----
-
-## Logging (tag: `WebViewBridge`)
-
-| Event | When |
-|-------|------|
-| JS interface injected | After `addJavascriptInterface` |
-| Page loaded | `onPageFinished` |
-| `shouldOverrideUrlLoading` / `onPageStarted` / `onReceivedError` | WebViewClient |
-| Progress + JS console | WebChromeClient |
-| Browser launch requested / success / errors | `BrowserBridge.openInBrowser` |
+- **Setup:** subdomain + folder (defaults `dev` / `prod`), saved in SharedPreferences  
+- **Login:** ValidateLogin → Profile → stores `userID`, `clinicID`, `languageId`, `oemID`  
+- **Home:** builds the three URLs above and opens `WebViewActivity`  
+- **Logout:** clears session only; config remains  
 
 ---
 
-## License
+## Key files
 
-Sample code — free to use and modify.
+| File | Purpose |
+|------|---------|
+| `AppDestinations.kt` | Constructs the three WebView URLs |
+| `BrowserBridge.kt` | Native bridge (`NativeApp.callback`) |
+| `WebViewActivity.kt` | Full-screen WebView host |
+| `MainActivity.kt` | Home buttons that open each URL |
+| `data/AppPreferences.kt` | Cached config + session |
+| `network/GenieMdApi.kt` | Login + profile APIs |
+
+---
+
+## Logcat
+
+Filter tag: **`WebViewBridge`**
+
+Useful messages: URL loads, bridge callbacks, browser launch, permission / file-chooser events.
