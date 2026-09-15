@@ -30,6 +30,8 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &dependent=true
   &fromWebView=android
   &ignoreLocationCheck=true
+  &disableCamera=true
+  &forWR=true
 ```
 
 ### 2. Schedule Visit Now
@@ -44,6 +46,7 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &dependent=true
   &fromWebView=android
   &ignoreLocationCheck=true
+  &disableCamera=true
 ```
 
 ### 3. Schedules List
@@ -61,12 +64,12 @@ With defaults `subdomain=mhc`, `folder=apps2`, and profile `clinicID=1000254`, `
 
 **Visit Doctor:**
 ```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true
 ```
 
 **Schedule Visit:**
 ```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true
 ```
 
 **Schedules List:**
@@ -129,6 +132,18 @@ Spaces must be encoded as `%20`.
 - **Remove it** if you do not want dependent behavior — simply do not append `&dependent=true` in `AppDestinations.kt`.
 
 Schedules List does not use `dependent`.
+
+### `disableCamera=true`
+
+`&disableCamera=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
+
+Schedules List does not use `disableCamera`.
+
+### `forWR=true` — Visit Doctor only
+
+`&forWR=true` is appended only on **Visit Doctor Now** (waiting room).
+
+Schedule Visit Now and Schedules List do not include `forWR`.
 
 ### Android vs iOS — `fromWebView`
 
