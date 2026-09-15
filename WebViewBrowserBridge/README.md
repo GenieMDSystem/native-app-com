@@ -18,6 +18,17 @@ Values come from:
 | Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` · `environmentUrl` = `https://{subdomain}.geniemd.net/{folder}` |
 | Profile (after login) | `clinicID`, `userID`, `languageId`, `oemID` |
 
+### New query params
+
+These flags were added to the WebView URLs:
+
+| Param | Value | Visit Doctor Now | Schedule Visit Now | Schedules List |
+|-------|-------|------------------|--------------------|----------------|
+| **`disableCamera`** **(new)** | `true` | yes | yes | no |
+| **`forWR`** **(new)** | `true` | yes | no | no |
+
+All other query params (`patientLanguageID`, `patientOEMID`, `protocolName`, `dependent`, `fromWebView`, `ignoreLocationCheck`) are unchanged.
+
 ### 1. Visit Doctor Now (Waiting Room)
 
 `AppDestinations.visitDoctorUrl(config, profile)`
@@ -30,8 +41,8 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &dependent=true
   &fromWebView=android
   &ignoreLocationCheck=true
-  &disableCamera=true
-  &forWR=true
+  &disableCamera=true          # NEW
+  &forWR=true                  # NEW — Visit Doctor only
 ```
 
 ### 2. Schedule Visit Now
@@ -46,7 +57,7 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &dependent=true
   &fromWebView=android
   &ignoreLocationCheck=true
-  &disableCamera=true
+  &disableCamera=true          # NEW
 ```
 
 ### 3. Schedules List
@@ -60,22 +71,27 @@ https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patie
 
 ### Example
 
+New query params are called out below the full URL.
+
 With defaults `subdomain=mhc`, `folder=apps2`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`:
 
 **Visit Doctor:**
 ```
 https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true
 ```
+**New:** `disableCamera=true`, `forWR=true`
 
 **Schedule Visit:**
 ```
 https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true
 ```
+**New:** `disableCamera=true`
 
 **Schedules List:**
 ```
 https://mhc.geniemd.net/apps2/rpm/#/webview/1000254/0b4a…/patient-schedule?fromWebView=android
 ```
+No new query params.
 
 ---
 
@@ -133,13 +149,13 @@ Spaces must be encoded as `%20`.
 
 Schedules List does not use `dependent`.
 
-### `disableCamera=true`
+### `disableCamera=true` **(new)**
 
 `&disableCamera=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
 
 Schedules List does not use `disableCamera`.
 
-### `forWR=true` — Visit Doctor only
+### `forWR=true` — Visit Doctor only **(new)**
 
 `&forWR=true` is appended only on **Visit Doctor Now** (waiting room).
 
