@@ -12,7 +12,7 @@ object AppDestinations {
    * waiting room url.
    *
    * https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
-   *   ?patientLanguageID={languageId}&patientOEMID={oemID}&ignoreLocalStorage=true&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true
+   *   ?patientLanguageID={languageId}&patientOEMID={oemID}&ignoreLocalStorage=true&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true
    */
   fun visitDoctorUrl(config: AppConfig, profile: UserProfile): String {
     return buildString {
@@ -27,7 +27,7 @@ object AppDestinations {
       append(profile.languageId)
       append("&patientOEMID=")
       append(profile.oemID)
-      append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true")
+      append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true")
     }
   }
 
