@@ -176,6 +176,8 @@ fromWebView=android  →  fromWebView=ios
 
 Apply that change on all three links (Visit Doctor, Schedule Visit, Schedules List). The rest of the path and query params stay the same.
 
+An iOS host app lives in `ios/WebViewBrowserBridge/`. It uses `fromWebView=ios` and a **native PHPicker** so WKWebView’s built-in Photo Library sheet cannot freeze the page after dismiss. See `ios/README.md`.
+
 ---
 
 ## WebView native bridge
