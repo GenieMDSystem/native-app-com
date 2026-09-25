@@ -12,4 +12,4 @@ Same repo for Android and iOS WebView hosts.
 
 Open the iOS app in Xcode:
 
-`ios/WebViewBrowserBridge/WebViewBrowserBridge.xcodeproj`
+`ios/WebBridge.xcodeproj`
