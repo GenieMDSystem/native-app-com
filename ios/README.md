@@ -17,8 +17,8 @@ Do not add Photo Library permission to Info.plist. PHPicker does not need it.
 
 ## Run
 
-1. Install **Xcode** (this Mac currently has only Command Line Tools)
-2. Open `ios/WebViewBrowserBridge/WebViewBrowserBridge.xcodeproj`
+1. Install **Xcode**
+2. From the repo root, open `ios/WebViewBrowserBridge/WebViewBrowserBridge.xcodeproj`
 3. Select an iPhone simulator or a signed device
 4. Set your Development Team in Signing & Capabilities
 5. Run (⌘R)
