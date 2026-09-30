@@ -8,52 +8,69 @@ import com.example.webviewbrowserbridge.data.UserProfile
  */
 object AppDestinations {
 
-  /**
-   * waiting room url.
-   *
-   * https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
-   *   ?patientLanguageID={languageId}&patientOEMID={oemID}&ignoreLocalStorage=true&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true
-   */
-  fun visitDoctorUrl(config: AppConfig, profile: UserProfile): String {
-    return buildString {
-      append(config.baseUrl)
-      append("/")
-      append(config.folder)
-      append("/assessment/#/protocol/")
-      append(profile.clinicID)
-      append("/consent/")
-      append(profile.userID)
-      append("?patientLanguageID=")
-      append(profile.languageId)
-      append("&patientOEMID=")
-      append(profile.oemID)
-      append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true")
-    }
-  }
+    const val LOCAL_ASSESSMENT_BASE = "http://localhost:4201"
+    const val LOCAL_RPM_BASE = "http://localhost:4200/rpm"
 
-  /** schedule a teleconsultation url. */
-  fun scheduleVisitUrl(config: AppConfig, profile: UserProfile): String {
-    return buildString {
-      append(config.baseUrl)
-      append("/")
-      append(config.folder)
-      append("/assessment/#/protocol/")
-      append(profile.clinicID)
-      append("/consent/")
-      append(profile.userID)
-      append("?patientLanguageID=")
-      append(profile.languageId)
-      append("&patientOEMID=")
-      append(profile.oemID)
-      append("&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true")
+    private fun assessmentBase(config: AppConfig, useLocal: Boolean): String {
+        return if (useLocal) {
+            LOCAL_ASSESSMENT_BASE
+        } else {
+            "${config.baseUrl}/${config.folder}/assessment"
+        }
     }
-  }
 
-  /** schedules list url.
-   * 
-   * https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/consent/{userID}/patient-schedule?fromWebView=android
-  */
-  fun schedulesListUrl(config: AppConfig, profile: UserProfile): String {
-    return "${config.baseUrl}/${config.folder}/rpm/#/webview/${profile.clinicID}/${profile.userID}/patient-schedule?fromWebView=android"
-  }
+    private fun rpmBase(config: AppConfig, useLocal: Boolean): String {
+        return if (useLocal) {
+            LOCAL_RPM_BASE
+        } else {
+            "${config.baseUrl}/${config.folder}/rpm"
+        }
+    }
+
+    /**
+     * waiting room url.
+     *
+     * live:  https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/...
+     * local: http://localhost:4201/#/protocol/...
+     */
+    fun visitDoctorUrl(config: AppConfig, profile: UserProfile, useLocal: Boolean = false): String {
+        return buildString {
+            append(assessmentBase(config, useLocal))
+            append("/#/protocol/")
+            append(profile.clinicID)
+            append("/consent/")
+            append(profile.userID)
+            append("?patientLanguageID=")
+            append(profile.languageId)
+            append("&patientOEMID=")
+            append(profile.oemID)
+            append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true")
+        }
+    }
+
+    /** schedule a teleconsultation url. */
+    fun scheduleVisitUrl(config: AppConfig, profile: UserProfile, useLocal: Boolean = false): String {
+        return buildString {
+            append(assessmentBase(config, useLocal))
+            append("/#/protocol/")
+            append(profile.clinicID)
+            append("/consent/")
+            append(profile.userID)
+            append("?patientLanguageID=")
+            append(profile.languageId)
+            append("&patientOEMID=")
+            append(profile.oemID)
+            append("&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true")
+        }
+    }
+
+    /**
+     * schedules list url.
+     *
+     * live:  https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/...
+     * local: http://localhost:4200/rpm/#/webview/...
+     */
+    fun schedulesListUrl(config: AppConfig, profile: UserProfile, useLocal: Boolean = false): String {
+        return "${rpmBase(config, useLocal)}/#/webview/${profile.clinicID}/${profile.userID}/patient-schedule?fromWebView=android"
+    }
 }

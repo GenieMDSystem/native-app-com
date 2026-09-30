@@ -16,6 +16,7 @@ final class AppPreferences {
         static let languageId = "language_id"
         static let oemID = "oem_id"
         static let displayName = "display_name"
+        static let localMode = "local_mode"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -93,6 +94,11 @@ final class AppPreferences {
         defaults.removeObject(forKey: Key.languageId)
         defaults.removeObject(forKey: Key.oemID)
         defaults.removeObject(forKey: Key.displayName)
+    }
+
+    var isLocalMode: Bool {
+        get { defaults.bool(forKey: Key.localMode) }
+        set { defaults.set(newValue, forKey: Key.localMode) }
     }
 
     func clearAll() {

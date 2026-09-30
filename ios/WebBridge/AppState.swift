@@ -22,6 +22,12 @@ final class AppState {
         didSet { UserDefaults.standard.set(useLegacyWebView, forKey: "use_legacy_webview") }
     }
 
+    /// When true, Visit Doctor / Schedule Visit use localhost:4201 and
+    /// Schedules List uses localhost:4200/rpm.
+    var useLocalWebHost: Bool {
+        didSet { prefs.isLocalMode = useLocalWebHost }
+    }
+
     private let prefs: AppPreferences
     private let api: GenieMdApi
 
@@ -31,6 +37,7 @@ final class AppState {
         self.config = prefs.getConfig()
         self.session = prefs.getSession()
         self.useLegacyWebView = UserDefaults.standard.bool(forKey: "use_legacy_webview")
+        self.useLocalWebHost = prefs.isLocalMode
     }
 
     @MainActor

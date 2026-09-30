@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.webviewbrowserbridge.data.AppPreferences
+import com.google.android.material.switchmaterial.SwitchMaterial
 
 /**
  * Home screen after login. Opens WebViews with URLs built from cached config + profile.
@@ -48,22 +49,38 @@ class MainActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.txtWelcome).text =
             getString(R.string.home_welcome, profile.displayName)
 
-        findViewById<TextView>(R.id.txtDomainInfo).text = config.environmentUrl
+        val txtDomainInfo = findViewById<TextView>(R.id.txtDomainInfo)
+        val switchLocal = findViewById<SwitchMaterial>(R.id.switchLocal)
+
+        fun refreshHostLabel(useLocal: Boolean) {
+            txtDomainInfo.text = if (useLocal) {
+                getString(R.string.home_local_info)
+            } else {
+                config.environmentUrl
+            }
+        }
+
+        switchLocal.isChecked = prefs.isLocalMode()
+        refreshHostLabel(switchLocal.isChecked)
+        switchLocal.setOnCheckedChangeListener { _, checked ->
+            prefs.setLocalMode(checked)
+            refreshHostLabel(checked)
+        }
 
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
-            val url = AppDestinations.visitDoctorUrl(config, profile)
+            val url = AppDestinations.visitDoctorUrl(config, profile, switchLocal.isChecked)
             Log.d(TAG, "Visit Doctor URL: $url")
             openWebView(url)
         }
 
         findViewById<Button>(R.id.btnScheduleVisit).setOnClickListener {
-            val url = AppDestinations.scheduleVisitUrl(config, profile)
+            val url = AppDestinations.scheduleVisitUrl(config, profile, switchLocal.isChecked)
             Log.d(TAG, "Schedule Visit URL: $url")
             openWebView(url)
         }
 
         findViewById<Button>(R.id.btnSchedulesList).setOnClickListener {
-            val url = AppDestinations.schedulesListUrl(config, profile)
+            val url = AppDestinations.schedulesListUrl(config, profile, switchLocal.isChecked)
             Log.d(TAG, "Schedules List URL: $url")
             openWebView(url)
         }

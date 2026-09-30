@@ -13,7 +13,9 @@ struct HomeView: View {
                     .padding(.top, 32)
                     .padding(.bottom, 4)
 
-                Text(appState.config?.environmentUrl ?? "")
+                Text(appState.useLocalWebHost
+                     ? "Local: localhost:4201 (visit) · localhost:4200/rpm (schedules)"
+                     : (appState.config?.environmentUrl ?? ""))
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.subtitle)
                     .multilineTextAlignment(.center)
@@ -24,6 +26,19 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.subtitle)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 16)
+
+                HStack(spacing: 12) {
+                    Text("Live")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(appState.useLocalWebHost ? AppTheme.subtitle : AppTheme.title)
+                    Toggle("Local WebView host", isOn: $appState.useLocalWebHost)
+                        .labelsHidden()
+                        .tint(AppTheme.primary)
+                    Text("Local")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(appState.useLocalWebHost ? AppTheme.title : AppTheme.subtitle)
+                }
+                .padding(.bottom, 24)
 
                 Toggle(isOn: $appState.useLegacyWebView) {
                     VStack(alignment: .leading, spacing: 4) {
@@ -99,11 +114,11 @@ struct HomeView: View {
         let url: String
         switch destination {
         case .visitDoctor:
-            url = AppDestinations.visitDoctorUrl(config: config, profile: profile)
+            url = AppDestinations.visitDoctorUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
         case .scheduleVisit:
-            url = AppDestinations.scheduleVisitUrl(config: config, profile: profile)
+            url = AppDestinations.scheduleVisitUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
         case .schedulesList:
-            url = AppDestinations.schedulesListUrl(config: config, profile: profile)
+            url = AppDestinations.schedulesListUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
         }
         print("[WebViewBridge] Opening: \(url)")
         appState.openWebView(url: url)

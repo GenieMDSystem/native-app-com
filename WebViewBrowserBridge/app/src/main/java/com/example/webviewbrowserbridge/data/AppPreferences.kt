@@ -75,6 +75,12 @@ class AppPreferences(context: Context) {
             .apply()
     }
 
+    fun isLocalMode(): Boolean = prefs.getBoolean(KEY_LOCAL_MODE, false)
+
+    fun setLocalMode(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_LOCAL_MODE, enabled).apply()
+    }
+
     fun clearAll() {
         prefs.edit().clear().apply()
     }
@@ -84,6 +90,7 @@ class AppPreferences(context: Context) {
 
         private const val KEY_SUBDOMAIN = "subdomain"
         private const val KEY_FOLDER = "folder"
+        private const val KEY_LOCAL_MODE = "local_mode"
         private const val KEY_TOKEN = "token"
         private const val KEY_USER_ID = "user_id"
         private const val KEY_CLINIC_ID = "clinic_id"
