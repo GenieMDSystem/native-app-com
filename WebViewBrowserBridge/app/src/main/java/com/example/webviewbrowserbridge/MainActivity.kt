@@ -50,7 +50,9 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.home_welcome, profile.displayName)
 
         val txtDomainInfo = findViewById<TextView>(R.id.txtDomainInfo)
+        val localModeRow = findViewById<View>(R.id.localModeRow)
         val switchLocal = findViewById<SwitchMaterial>(R.id.switchLocal)
+        val localEnabled = AppDestinations.isLocalHostEnabled
 
         fun refreshHostLabel(useLocal: Boolean) {
             txtDomainInfo.text = if (useLocal) {
@@ -60,11 +62,18 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        switchLocal.isChecked = prefs.isLocalMode()
-        refreshHostLabel(switchLocal.isChecked)
-        switchLocal.setOnCheckedChangeListener { _, checked ->
-            prefs.setLocalMode(checked)
-            refreshHostLabel(checked)
+        if (localEnabled) {
+            localModeRow.visibility = View.VISIBLE
+            switchLocal.isChecked = prefs.isLocalMode()
+            refreshHostLabel(switchLocal.isChecked)
+            switchLocal.setOnCheckedChangeListener { _, checked ->
+                prefs.setLocalMode(checked)
+                refreshHostLabel(checked)
+            }
+        } else {
+            localModeRow.visibility = View.GONE
+            switchLocal.isChecked = false
+            refreshHostLabel(false)
         }
 
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {

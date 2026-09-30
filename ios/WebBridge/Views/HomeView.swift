@@ -13,7 +13,7 @@ struct HomeView: View {
                     .padding(.top, 32)
                     .padding(.bottom, 4)
 
-                Text(appState.useLocalWebHost
+                Text(appState.useLocalWebHost && AppDestinations.isLocalHostEnabled
                      ? "Local: localhost:4201 (visit) · localhost:4200/rpm (schedules)"
                      : (appState.config?.environmentUrl ?? ""))
                     .font(.system(size: 13))
@@ -27,18 +27,20 @@ struct HomeView: View {
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 16)
 
-                HStack(spacing: 12) {
-                    Text("Live")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(appState.useLocalWebHost ? AppTheme.subtitle : AppTheme.title)
-                    Toggle("Local WebView host", isOn: $appState.useLocalWebHost)
-                        .labelsHidden()
-                        .tint(AppTheme.primary)
-                    Text("Local")
-                        .font(.system(size: 15, weight: .semibold))
-                        .foregroundStyle(appState.useLocalWebHost ? AppTheme.title : AppTheme.subtitle)
+                if AppDestinations.isLocalHostEnabled {
+                    HStack(spacing: 12) {
+                        Text("Live")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(appState.useLocalWebHost ? AppTheme.subtitle : AppTheme.title)
+                        Toggle("Local WebView host", isOn: $appState.useLocalWebHost)
+                            .labelsHidden()
+                            .tint(AppTheme.primary)
+                        Text("Local")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(appState.useLocalWebHost ? AppTheme.title : AppTheme.subtitle)
+                    }
+                    .padding(.bottom, 24)
                 }
-                .padding(.bottom, 24)
 
                 Toggle(isOn: $appState.useLegacyWebView) {
                     VStack(alignment: .leading, spacing: 4) {

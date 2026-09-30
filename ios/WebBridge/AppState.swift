@@ -25,7 +25,11 @@ final class AppState {
     /// When true, Visit Doctor / Schedule Visit use localhost:4201 and
     /// Schedules List uses localhost:4200/rpm.
     var useLocalWebHost: Bool {
-        didSet { prefs.isLocalMode = useLocalWebHost }
+        didSet {
+            if AppDestinations.isLocalHostEnabled {
+                prefs.isLocalMode = useLocalWebHost
+            }
+        }
     }
 
     private let prefs: AppPreferences
@@ -37,7 +41,7 @@ final class AppState {
         self.config = prefs.getConfig()
         self.session = prefs.getSession()
         self.useLegacyWebView = UserDefaults.standard.bool(forKey: "use_legacy_webview")
-        self.useLocalWebHost = prefs.isLocalMode
+        self.useLocalWebHost = AppDestinations.isLocalHostEnabled && prefs.isLocalMode
     }
 
     @MainActor

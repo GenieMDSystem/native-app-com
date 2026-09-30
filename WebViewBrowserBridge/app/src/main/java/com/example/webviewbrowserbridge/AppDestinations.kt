@@ -11,8 +11,13 @@ object AppDestinations {
     const val LOCAL_ASSESSMENT_BASE = "http://localhost:4201"
     const val LOCAL_RPM_BASE = "http://localhost:4200/rpm"
 
+    /** Localhost hosts are debug-only; release/prod always uses live URLs. */
+    val isLocalHostEnabled: Boolean get() = BuildConfig.ENABLE_LOCAL_HOST
+
+    private fun useLocalHost(requested: Boolean): Boolean = requested && isLocalHostEnabled
+
     private fun assessmentBase(config: AppConfig, useLocal: Boolean): String {
-        return if (useLocal) {
+        return if (useLocalHost(useLocal)) {
             LOCAL_ASSESSMENT_BASE
         } else {
             "${config.baseUrl}/${config.folder}/assessment"
@@ -20,7 +25,7 @@ object AppDestinations {
     }
 
     private fun rpmBase(config: AppConfig, useLocal: Boolean): String {
-        return if (useLocal) {
+        return if (useLocalHost(useLocal)) {
             LOCAL_RPM_BASE
         } else {
             "${config.baseUrl}/${config.folder}/rpm"

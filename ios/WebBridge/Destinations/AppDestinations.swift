@@ -8,12 +8,25 @@ enum AppDestinations {
     static let localAssessmentBase = "http://localhost:4201"
     static let localRpmBase = "http://localhost:4200/rpm"
 
+    /// Localhost hosts are debug-only; release/prod always uses live URLs.
+    static var isLocalHostEnabled: Bool {
+        #if DEBUG
+        true
+        #else
+        false
+        #endif
+    }
+
+    private static func useLocalHost(_ requested: Bool) -> Bool {
+        requested && isLocalHostEnabled
+    }
+
     private static func assessmentBase(config: AppConfig, useLocal: Bool) -> String {
-        useLocal ? localAssessmentBase : "\(config.baseUrl)/\(config.folder)/assessment"
+        useLocalHost(useLocal) ? localAssessmentBase : "\(config.baseUrl)/\(config.folder)/assessment"
     }
 
     private static func rpmBase(config: AppConfig, useLocal: Bool) -> String {
-        useLocal ? localRpmBase : "\(config.baseUrl)/\(config.folder)/rpm"
+        useLocalHost(useLocal) ? localRpmBase : "\(config.baseUrl)/\(config.folder)/rpm"
     }
 
     /// Waiting room / Visit Doctor Now

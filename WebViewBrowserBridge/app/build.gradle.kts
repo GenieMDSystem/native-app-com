@@ -15,11 +15,20 @@ android {
         versionName = "1.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("boolean", "ENABLE_LOCAL_HOST", "false")
+    }
+
+    buildFeatures {
+        buildConfig = true
     }
 
     buildTypes {
+        debug {
+            buildConfigField("boolean", "ENABLE_LOCAL_HOST", "true")
+        }
         release {
             isMinifyEnabled = false
+            buildConfigField("boolean", "ENABLE_LOCAL_HOST", "false")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
