@@ -54,6 +54,7 @@ struct BridgeWebView: UIViewRepresentable {
         var parent: BridgeWebView
         weak var webView: WKWebView?
         var loadURLRequest: String?
+        private let imagePicker = NativeImagePicker()
 
         init(parent: BridgeWebView) {
             self.parent = parent
@@ -72,6 +73,14 @@ struct BridgeWebView: UIViewRepresentable {
 
         func showBridgeMessage(_ message: String) {
             parent.onMessage(message)
+        }
+
+        func openNativeImagePicker(multiple: Bool) {
+            guard let webView else {
+                parent.onMessage("Photo picker unavailable")
+                return
+            }
+            imagePicker.present(from: webView, multiple: multiple)
         }
 
         // MARK: - WKScriptMessageHandler

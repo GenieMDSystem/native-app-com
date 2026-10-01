@@ -38,6 +38,7 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, UIImagePickerControllerDelegate, UINavigationControllerDelegate, BridgeCallbackHost {
         var parent: LegacyBridgeWebView
         weak var controller: LegacyWebViewController?
+        private let imagePicker = NativeImagePicker()
 
         init(parent: LegacyBridgeWebView) {
             self.parent = parent
@@ -56,6 +57,14 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
 
         func showBridgeMessage(_ message: String) {
             parent.onMessage(message)
+        }
+
+        func openNativeImagePicker(multiple: Bool) {
+            guard let webView = controller?.webView else {
+                parent.onMessage("Photo picker unavailable")
+                return
+            }
+            imagePicker.present(from: webView, multiple: multiple)
         }
 
         // MARK: - WKScriptMessageHandler

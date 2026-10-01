@@ -31,6 +31,8 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.webkit.WebSettingsCompat
+import androidx.webkit.WebViewFeature
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.json.JSONArray
 import org.json.JSONObject
@@ -321,6 +323,13 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             setGeolocationEnabled(true)
             // Allow audio/video playback without a user tap (optional; many telehealth flows need this)
             mediaPlaybackRequiresUserGesture = false
+        }
+        // Android WebView adds X-Requested-With: <package> on every request, including
+        // Angular uploads. The desktop browser does not, and the AWS load balancer
+        // in front of the API returns 403 for that header. An empty allow-list
+        // stops the header from being sent.
+        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
         }
         if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true)

@@ -42,6 +42,7 @@ enum AppDestinations {
         url += "&fromWebView=\(platform)"
         url += "&ignoreLocationCheck=true"
         url += "&disableCamera=true"
+        url += "&openPickerInNative=true"
         url += "&forWR=true"
         return url
     }
@@ -57,6 +58,7 @@ enum AppDestinations {
         url += "&fromWebView=\(platform)"
         url += "&ignoreLocationCheck=true"
         url += "&disableCamera=true"
+        url += "&openPickerInNative=true"
         return url
     }
 

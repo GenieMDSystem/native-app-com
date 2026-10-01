@@ -1,15 +1,17 @@
 import Foundation
 import UIKit
 
-/// Callback types from JavaScript → native.
-///
-/// type 1 WAITING_ROOM: { type: 1, data: { url, success, openInBrowser } }
-/// type 2 SCHEDULE / CLOSE: { type: 2, data: { success / close } }
-/// type 3 OPEN_SCHEDULE_LINK: { type: 3, data: { url, success, openInBrowser } }
+// Callback types from JavaScript -> native.
+// type 1 WAITING_ROOM: { type: 1, data: { url, success, openInBrowser } }
+// type 2 SCHEDULE / CLOSE: { type: 2, data: { success: true } } or { close: true }
+// type 3 OPEN_SCHEDULE_LINK: { type: 3, data: { url, success, openInBrowser } }
+// type 4 OPEN_NATIVE_IMAGE_PICKER: { type: 4, data: { accept, source, multiple } }
+// Native answers with window.onNativeImagePicked(json).
 enum BridgeAction: Int {
     case waitingRoom = 1
     case schedule = 2
     case openScheduleLink = 3
+    case openNativeImagePicker = 4
 }
 
 struct UrlBridgeData {
@@ -29,6 +31,7 @@ protocol BridgeCallbackHost: AnyObject {
     func loadUrlInWebView(_ url: String)
     func finishWithResult()
     func showBridgeMessage(_ message: String)
+    func openNativeImagePicker(multiple: Bool)
 }
 
 /// Parses `NativeApp.callback(json)` payloads from the WebView.
@@ -55,6 +58,7 @@ enum BrowserBridge {
     """
 
     static func handle(json: String, host: BridgeCallbackHost) {
+        print("[WebViewBridge] Native callback received: \(json)")
         guard let data = json.data(using: .utf8),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let type = root["type"] as? Int
@@ -78,6 +82,12 @@ enum BrowserBridge {
             handleUrlAction(action: action, payload: parseUrlData(dataObj), host: host)
         case .schedule:
             handleSchedule(parseScheduleData(dataObj), host: host)
+        case .openNativeImagePicker:
+            let multiple = parseBool(dataObj["multiple"])
+            print("[WebViewBridge] OPEN_NATIVE_IMAGE_PICKER accept=\(dataObj["accept"] ?? "") source=\(dataObj["source"] ?? "") multiple=\(multiple)")
+            DispatchQueue.main.async {
+                host.openNativeImagePicker(multiple: multiple)
+            }
         }
     }
 
@@ -128,16 +138,25 @@ enum BrowserBridge {
     private static func parseUrlData(_ data: [String: Any]) -> UrlBridgeData {
         UrlBridgeData(
             url: data["url"] as? String ?? "",
-            success: data["success"] as? Bool ?? false,
-            openInBrowser: data["openInBrowser"] as? Bool ?? false
+            success: parseBool(data["success"]),
+            openInBrowser: parseBool(data["openInBrowser"])
         )
     }
 
     private static func parseScheduleData(_ data: [String: Any]) -> ScheduleBridgeData {
         ScheduleBridgeData(
-            success: data["success"] as? Bool ?? false,
-            close: data["close"] as? Bool ?? false
+            success: parseBool(data["success"]),
+            close: parseBool(data["close"])
         )
+    }
+
+    private static func parseBool(_ value: Any?) -> Bool {
+        if let bool = value as? Bool { return bool }
+        if let number = value as? NSNumber { return number.boolValue }
+        if let string = value as? String {
+            return string == "true" || string == "1"
+        }
+        return false
     }
 
     private static func openInBrowser(_ urlString: String, host: BridgeCallbackHost) {
@@ -167,6 +186,7 @@ enum BrowserBridge {
         case .waitingRoom: return "Waiting room"
         case .schedule: return "Schedule"
         case .openScheduleLink: return "Schedule link"
+        case .openNativeImagePicker: return "Photo library"
         }
     }
 }
