@@ -318,3 +318,9 @@ Launcher → Setup (first time) → Login → Home (3 buttons) → WebView
 Filter tag: **`WebViewBridge`**
 
 Useful messages: URL loads, bridge callbacks, browser launch, permission / file-chooser events.
+
+
+
+for forwading local link
+adb reverse tcp:4200 tcp:4200
+adb reverse tcp:4201 tcp:4201
