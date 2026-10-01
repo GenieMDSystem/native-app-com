@@ -8,6 +8,7 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
 import android.view.View
@@ -50,6 +51,13 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     companion object {
         private const val TAG = "WebViewBridge"
         private const val EXTRA_URL = "extra_url"
+        private const val MAX_PASS_THROUGH_BYTES = 1_500_000
+        private val PASS_THROUGH_MIMES = setOf(
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/gif",
+        )
 
         fun createIntent(context: Context, url: String): Intent {
             return Intent(context, WebViewActivity::class.java).apply {
@@ -235,16 +243,17 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
      */
     private fun deliverNativeImageResult(
         cancelled: Boolean,
-        files: List<Pair<String, String>>
+        files: List<NativePickedImage>
     ) {
         if (!::webView.isInitialized) {
             return
         }
         val fileArray = JSONArray()
-        files.forEach { (mimeType, dataUrl) ->
+        files.forEach { image ->
             fileArray.put(JSONObject().apply {
-                put("mimeType", mimeType)
-                put("dataUrl", dataUrl)
+                put("mimeType", image.mimeType)
+                put("fileName", image.fileName)
+                put("dataUrl", image.dataUrl)
             })
         }
         val payload = JSONObject().apply {
@@ -263,25 +272,93 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         webView.evaluateJavascript(script, null)
     }
 
-    private fun encodeImageForWeb(uri: Uri): Pair<String, String>? {
+    /**
+     * Sends the original file bytes. Decoding the picker stream with
+     * BitmapFactory.decodeStream and recompressing produced a smeared JPEG
+     * that the upload API rejects. A normal file of the same picture succeeds.
+     */
+    private fun encodeImageForWeb(uri: Uri): NativePickedImage? {
         return try {
-            val bitmap = contentResolver.openInputStream(uri)?.use { input ->
-                BitmapFactory.decodeStream(input)
-            } ?: return null
-            val scaled = scaleDown(bitmap, 1600)
-            val output = ByteArrayOutputStream()
-            scaled.compress(Bitmap.CompressFormat.JPEG, 80, output)
-            if (scaled !== bitmap) {
-                bitmap.recycle()
-                scaled.recycle()
-            } else {
-                bitmap.recycle()
+            val original = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+            if (original.isEmpty()) {
+                return null
             }
-            val base64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
-            "image/jpeg" to "data:image/jpeg;base64,$base64"
+            val sourceMime = imageMime(contentResolver.getType(uri), original)
+            val passThrough = sourceMime in PASS_THROUGH_MIMES && original.size <= MAX_PASS_THROUGH_BYTES
+            val bytes = if (passThrough) original else recompressImage(original)
+            val mimeType = if (bytes === original) sourceMime else "image/jpeg"
+            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            NativePickedImage(
+                mimeType = mimeType,
+                dataUrl = "data:$mimeType;base64,$base64",
+                fileName = displayName(uri) ?: "native-photo.${extensionFor(mimeType)}",
+            )
         } catch (e: Exception) {
             Log.d(TAG, "Error encoding picked image", e)
             null
+        }
+    }
+
+    private fun recompressImage(bytes: ByteArray): ByteArray {
+        val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return bytes
+        val scaled = scaleDown(bitmap, 1600)
+        return try {
+            val output = ByteArrayOutputStream()
+            if (!scaled.compress(Bitmap.CompressFormat.JPEG, 90, output)) {
+                bytes
+            } else {
+                output.toByteArray()
+            }
+        } finally {
+            if (scaled !== bitmap) {
+                scaled.recycle()
+            }
+            bitmap.recycle()
+        }
+    }
+
+    private fun displayName(uri: Uri): String? {
+        return contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)
+            ?.use { cursor ->
+                if (!cursor.moveToFirst()) {
+                    null
+                } else {
+                    cursor.getString(0)?.takeIf { it.isNotBlank() }
+                }
+            }
+    }
+
+    private fun imageMime(reported: String?, bytes: ByteArray): String {
+        val normalized = reported?.substringBefore(';')?.lowercase()
+        if (normalized != null && normalized.startsWith("image/") && normalized != "image/jpg") {
+            return normalized
+        }
+        if (normalized == "image/jpg") {
+            return "image/jpeg"
+        }
+        return when {
+            bytes.size >= 3 && bytes[0] == 0xFF.toByte() && bytes[1] == 0xD8.toByte() -> "image/jpeg"
+            bytes.size >= 8 && bytes.copyOfRange(0, 8).contentEquals(
+                byteArrayOf(0x89.toByte(), 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A)
+            ) -> "image/png"
+            bytes.size >= 12 &&
+                bytes.copyOfRange(0, 4).contentEquals("RIFF".toByteArray()) &&
+                bytes.copyOfRange(8, 12).contentEquals("WEBP".toByteArray()) -> "image/webp"
+            bytes.size >= 6 && (
+                bytes.copyOfRange(0, 6).contentEquals("GIF87a".toByteArray()) ||
+                    bytes.copyOfRange(0, 6).contentEquals("GIF89a".toByteArray())
+                ) -> "image/gif"
+            else -> "image/jpeg"
+        }
+    }
+
+    private fun extensionFor(mimeType: String): String {
+        return when (mimeType) {
+            "image/jpeg" -> "jpg"
+            "image/png" -> "png"
+            "image/webp" -> "webp"
+            "image/gif" -> "gif"
+            else -> mimeType.substringAfter('/', "jpg").substringBefore('+')
         }
     }
 
@@ -328,8 +405,15 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         // Angular uploads. The desktop browser does not, and the AWS load balancer
         // in front of the API returns 403 for that header. An empty allow-list
         // stops the header from being sent.
-        if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
-            WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
+        try {
+            if (WebViewFeature.isFeatureSupported(WebViewFeature.REQUESTED_WITH_HEADER_ALLOW_LIST)) {
+                WebSettingsCompat.setRequestedWithHeaderOriginAllowList(webView.settings, emptySet())
+                Log.d(TAG, "X-Requested-With header disabled")
+            } else {
+                Log.d(TAG, "X-Requested-With allow-list is not supported by this WebView")
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "Unable to disable X-Requested-With", e)
         }
         if ((applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
             WebView.setWebContentsDebuggingEnabled(true)
@@ -469,3 +553,9 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         super.onDestroy()
     }
 }
+
+private data class NativePickedImage(
+    val mimeType: String,
+    val dataUrl: String,
+    val fileName: String,
+)
