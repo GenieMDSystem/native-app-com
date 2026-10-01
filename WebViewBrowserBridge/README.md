@@ -26,8 +26,11 @@ These flags were added to the WebView URLs:
 |-------|-------|------------------|--------------------|----------------|
 | **`disableCamera`** **(new)** | `true` | yes | yes | no |
 | **`forWR`** **(new)** | `true` | yes | no | no |
+| **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
 
 All other query params (`patientLanguageID`, `patientOEMID`, `protocolName`, `dependent`, `fromWebView`, `ignoreLocationCheck`) are unchanged.
+
+`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Instead it must send bridge **type 4** and wait for `window.onNativeImagePicked(...)`. That avoids the iOS WKWebView freeze when Limited Photos access dismisses the system picker without firing `change` / `cancel`.
 
 ### 1. Visit Doctor Now (Waiting Room)
 
@@ -42,6 +45,7 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &fromWebView=android
   &ignoreLocationCheck=true
   &disableCamera=true          # NEW
+  &openPickerInNative=true     # NEW — native camera / photo library
   &forWR=true                  # NEW — Visit Doctor only
 ```
 
@@ -58,6 +62,7 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &fromWebView=android
   &ignoreLocationCheck=true
   &disableCamera=true          # NEW
+  &openPickerInNative=true     # NEW — native camera / photo library
 ```
 
 ### 3. Schedules List
@@ -77,15 +82,15 @@ With defaults `subdomain=mhc`, `folder=apps2`, and profile `clinicID=1000254`, `
 
 **Visit Doctor:**
 ```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&forWR=true
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true
 ```
-**New:** `disableCamera=true`, `forWR=true`
+**New:** `disableCamera=true`, `openPickerInNative=true`, `forWR=true`
 
 **Schedule Visit:**
 ```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true
 ```
-**New:** `disableCamera=true`
+**New:** `disableCamera=true`, `openPickerInNative=true`
 
 **Schedules List:**
 ```
@@ -160,6 +165,14 @@ Schedules List does not use `disableCamera`.
 `&forWR=true` is appended only on **Visit Doctor Now** (waiting room).
 
 Schedule Visit Now and Schedules List do not include `forWR`.
+
+### `openPickerInNative=true` **(new)**
+
+`&openPickerInNative=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
+
+When this flag is present, the web page must use the native image-picker bridge (type 4) instead of a file input. Native shows **Take Photo** / **Photo Library**, then calls `window.onNativeImagePicked(jsonString)`.
+
+Schedules List does not use `openPickerInNative`.
 
 ### Android vs iOS — `fromWebView`
 
@@ -248,6 +261,91 @@ If `success` **or** `close` is `true`, the WebView closes and the app returns to
 
 Same rules as type `1` (browser vs WebView, then return home when opening the browser).
 
+#### Type `4` — Open native image picker **(new)**
+
+Use this when the URL has `openPickerInNative=true`. Do **not** open `<input type="file">`.
+
+**Web → native (send):**
+
+```json
+{
+  "type": 4,
+  "data": {
+    "accept": "image/*",
+    "source": "camera-or-library",
+    "multiple": false
+  }
+}
+```
+
+| Field | Required | Behavior |
+|-------|----------|----------|
+| `accept` | no | Logged only; native always picks images |
+| `source` | no | Logged only; native always shows **Take Photo** and **Photo Library** |
+| `multiple` | no | `true` allows more than one library photo. Camera always returns one file |
+
+Native presents a chooser: **Take Photo** (camera) or **Photo Library**. Cancel on the sheet, camera, or library returns a cancelled payload.
+
+**Native → web (receive):**
+
+Native calls a global function. The argument is a **JSON string** (not an object):
+
+```javascript
+window.onNativeImagePicked(jsonString)
+```
+
+Success:
+
+```json
+{
+  "cancelled": false,
+  "success": true,
+  "files": [
+    {
+      "mimeType": "image/jpeg",
+      "fileName": "native-photo.jpg",
+      "dataUrl": "data:image/jpeg;base64,/9j/4AAQ..."
+    }
+  ]
+}
+```
+
+Cancel / no file:
+
+```json
+{
+  "cancelled": true,
+  "success": false,
+  "files": []
+}
+```
+
+Web should register the handler **before** sending type 4:
+
+```javascript
+window.onNativeImagePicked = function (jsonString) {
+  var result = typeof jsonString === "string" ? JSON.parse(jsonString) : jsonString;
+  if (!result.success || result.cancelled || !result.files || !result.files.length) {
+    return; // user cancelled
+  }
+  var files = result.files.map(function (item) {
+    var comma = item.dataUrl.indexOf(",");
+    var b64 = item.dataUrl.slice(comma + 1);
+    var binary = atob(b64);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new File([bytes], item.fileName || "native-photo.jpg", {
+      type: item.mimeType || "image/jpeg"
+    });
+  });
+  // attach `files` to the same upload path as a normal file input
+};
+
+sendToNative(4, { accept: "image/*", multiple: false });
+```
+
+Android and iOS use the same send/receive shape.
+
 ### Why `@JavascriptInterface`?
 
 Only methods annotated with `@JavascriptInterface` are callable from JavaScript (API 17+). This limits exposure and avoids reflecting arbitrary native methods into the page.
@@ -272,13 +370,16 @@ sendToNative(1, {
   success: true,
   openInBrowser: true
 });
+
+// Open native camera / photo library (type 4)
+sendToNative(4, { accept: "image/*", multiple: false });
 ```
 
 Always check `window.NativeApp` so the same page can run in a normal browser without crashing.
 
 ### Security notes
 
-- Only expose a narrow callback API (types 1–3).
+- Only expose a narrow callback API (types 1–4).
 - Validate URLs (`http` / `https` with a host) before opening.
 - Prefer loading trusted origins only.
 - Keep ProGuard rules for `@JavascriptInterface` methods if minify is enabled.
@@ -306,7 +407,7 @@ Launcher → Setup (first time) → Login → Home (3 buttons) → WebView
 |------|---------|
 | `AppDestinations.kt` | Constructs the three WebView URLs |
 | `BrowserBridge.kt` | Native bridge (`NativeApp.callback`) |
-| `WebViewActivity.kt` | Full-screen WebView host |
+| `WebViewActivity.kt` | Full-screen WebView host + native camera / photo library |
 | `MainActivity.kt` | Home buttons that open each URL |
 | `data/AppPreferences.kt` | Cached config + session |
 | `network/GenieMdApi.kt` | Login + profile APIs |
