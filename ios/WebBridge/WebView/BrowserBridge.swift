@@ -82,6 +82,8 @@ enum BrowserBridge {
     }
 
     private static func handleUrlAction(action: BridgeAction, payload: UrlBridgeData, host: BridgeCallbackHost) {
+        logReceivedUrl(action: action, payload: payload)
+
         if !payload.success {
             host.showBridgeMessage("\(actionLabel(action)) failed")
             return
@@ -108,6 +110,19 @@ enum BrowserBridge {
                 host.finishWithResult()
             }
         }
+    }
+
+    private static func logReceivedUrl(action: BridgeAction, payload: UrlBridgeData) {
+        let label: String
+        switch action {
+        case .waitingRoom: label = "WAITING_ROOM callback (type 1)"
+        case .openScheduleLink: label = "SCHEDULE_LINK callback (type 3)"
+        default: label = "\(action) callback"
+        }
+        print("[WebViewBridge] ========== \(label) ==========")
+        print("[WebViewBridge] url=\(payload.url)")
+        print("[WebViewBridge] success=\(payload.success) openInBrowser=\(payload.openInBrowser)")
+        print("[WebViewBridge] ==========================================")
     }
 
     private static func parseUrlData(_ data: [String: Any]) -> UrlBridgeData {

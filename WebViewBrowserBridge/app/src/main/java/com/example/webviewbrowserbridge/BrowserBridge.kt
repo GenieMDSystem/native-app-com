@@ -108,10 +108,7 @@ class BrowserBridge(
             return
         }
 
-        Log.d(
-            TAG,
-            "$action success=${payload.success} openInBrowser=${payload.openInBrowser} url=${payload.url}"
-        )
+        logReceivedUrl(action, payload)
 
         if (!payload.success) {
             toast("${actionLabel(action)} failed")
@@ -152,6 +149,18 @@ class BrowserBridge(
                 host.finishWithResult()
             }
         }
+    }
+
+    private fun logReceivedUrl(action: BridgeAction, payload: UrlBridgeData) {
+        val label = when (action) {
+            BridgeAction.WAITING_ROOM -> "WAITING_ROOM callback (type 1)"
+            BridgeAction.OPEN_SCHEDULE_LINK -> "SCHEDULE_LINK callback (type 3)"
+            else -> "${action.name} callback"
+        }
+        Log.i(TAG, "========== $label ==========")
+        Log.i(TAG, "url=${payload.url}")
+        Log.i(TAG, "success=${payload.success} openInBrowser=${payload.openInBrowser}")
+        Log.i(TAG, "==========================================")
     }
 
     private fun parseUrlData(data: JSONObject): UrlBridgeData {
