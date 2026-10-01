@@ -3,9 +3,12 @@ package com.example.webviewbrowserbridge
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
+import android.util.Base64
 import android.util.Log
 import android.view.View
 import android.webkit.ConsoleMessage
@@ -21,9 +24,21 @@ import android.webkit.WebViewClient
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.ByteArrayOutputStream
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 /**
  * Full-screen WebView (no top bar) with [BrowserBridge] injected as NativeApp.
@@ -45,6 +60,54 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     private lateinit var progressBar: ProgressBar
     private lateinit var permissionHelper: WebViewPermissionHelper
     private lateinit var fileChooserHelper: WebViewFileChooserHelper
+    private var cameraPhotoUri: Uri? = null
+    private var pickerCancelledDelivered = false
+
+    private var pickerAllowsMultiple = false
+
+    /** Same callback iOS should use: window.onNativeImagePicked(jsonString). */
+    private val nativeImagePickerSingle = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri == null) {
+            deliverNativeImageResult(cancelled = true, files = emptyList())
+            return@registerForActivityResult
+        }
+        encodeUrisOnBackground(listOf(uri))
+    }
+
+    private val nativeImagePicker = registerForActivityResult(
+        ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris ->
+        if (uris.isNullOrEmpty()) {
+            deliverNativeImageResult(cancelled = true, files = emptyList())
+            return@registerForActivityResult
+        }
+        encodeUrisOnBackground(uris)
+    }
+
+    private val takePicture = registerForActivityResult(
+        ActivityResultContracts.TakePicture()
+    ) { success ->
+        val uri = cameraPhotoUri
+        cameraPhotoUri = null
+        if (!success || uri == null) {
+            deliverNativeImageResult(cancelled = true, files = emptyList())
+            return@registerForActivityResult
+        }
+        encodeUrisOnBackground(listOf(uri))
+    }
+
+    private val cameraPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            launchCameraCapture()
+        } else {
+            Toast.makeText(this, R.string.picker_camera_unavailable, Toast.LENGTH_SHORT).show()
+            deliverNativeImageResult(cancelled = true, files = emptyList())
+        }
+    }
 
     @SuppressLint("SetJavaScriptEnabled")
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,6 +144,157 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     override fun finishWithResult() {
         Log.d(TAG, "Bridge closed WebView — returning to main screen")
         finish()
+    }
+
+    override fun openNativeImagePicker(multiple: Boolean) {
+        Log.d(TAG, "Opening native photo picker chooser multiple=$multiple")
+        pickerAllowsMultiple = multiple
+        pickerCancelledDelivered = false
+        val options = buildList {
+            if (packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+                add(getString(R.string.picker_take_photo))
+            }
+            add(getString(R.string.picker_photo_library))
+        }.toTypedArray()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.picker_title)
+            .setItems(options) { _, which ->
+                when (options[which]) {
+                    getString(R.string.picker_take_photo) -> requestCameraThenCapture()
+                    else -> launchPhotoLibrary()
+                }
+            }
+            .setNegativeButton(R.string.picker_cancel) { _, _ ->
+                deliverNativeImageResult(cancelled = true, files = emptyList())
+            }
+            .setOnCancelListener {
+                deliverNativeImageResult(cancelled = true, files = emptyList())
+            }
+            .show()
+    }
+
+    private fun launchPhotoLibrary() {
+        val request = PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+        if (pickerAllowsMultiple) {
+            nativeImagePicker.launch(request)
+        } else {
+            nativeImagePickerSingle.launch(request)
+        }
+    }
+
+    private fun requestCameraThenCapture() {
+        val granted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        if (granted) {
+            launchCameraCapture()
+        } else {
+            cameraPermission.launch(android.Manifest.permission.CAMERA)
+        }
+    }
+
+    private fun launchCameraCapture() {
+        try {
+            val photoFile = File(
+                File(cacheDir, "images").apply { mkdirs() },
+                "CAMERA_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.jpg"
+            )
+            val outputUri = FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                photoFile
+            )
+            cameraPhotoUri = outputUri
+            takePicture.launch(outputUri)
+        } catch (e: Exception) {
+            Log.d(TAG, "Error launching camera", e)
+            Toast.makeText(this, R.string.picker_camera_unavailable, Toast.LENGTH_SHORT).show()
+            deliverNativeImageResult(cancelled = true, files = emptyList())
+        }
+    }
+
+    private fun encodeUrisOnBackground(uris: List<Uri>) {
+        Thread {
+            val files = uris.mapNotNull { encodeImageForWeb(it) }
+            runOnUiThread {
+                if (files.isEmpty()) {
+                    deliverNativeImageResult(cancelled = true, files = emptyList())
+                } else {
+                    deliverNativeImageResult(cancelled = false, files = files)
+                }
+            }
+        }.start()
+    }
+
+    /**
+     * Generic return for iOS and Android.
+     * Success: { cancelled: false, success: true, files: [{ mimeType, dataUrl }] }
+     * Cancel:  { cancelled: true, success: false, files: [] }
+     */
+    private fun deliverNativeImageResult(
+        cancelled: Boolean,
+        files: List<Pair<String, String>>
+    ) {
+        if (!::webView.isInitialized) {
+            return
+        }
+        val fileArray = JSONArray()
+        files.forEach { (mimeType, dataUrl) ->
+            fileArray.put(JSONObject().apply {
+                put("mimeType", mimeType)
+                put("dataUrl", dataUrl)
+            })
+        }
+        val payload = JSONObject().apply {
+            put("cancelled", cancelled)
+            put("success", !cancelled && fileArray.length() > 0)
+            put("files", fileArray)
+        }
+        if (cancelled && pickerCancelledDelivered) {
+            return
+        }
+        if (cancelled) {
+            pickerCancelledDelivered = true
+        }
+        val script = "window.onNativeImagePicked(${JSONObject.quote(payload.toString())})"
+        Log.d(TAG, "onNativeImagePicked cancelled=$cancelled count=${fileArray.length()}")
+        webView.evaluateJavascript(script, null)
+    }
+
+    private fun encodeImageForWeb(uri: Uri): Pair<String, String>? {
+        return try {
+            val bitmap = contentResolver.openInputStream(uri)?.use { input ->
+                BitmapFactory.decodeStream(input)
+            } ?: return null
+            val scaled = scaleDown(bitmap, 1600)
+            val output = ByteArrayOutputStream()
+            scaled.compress(Bitmap.CompressFormat.JPEG, 80, output)
+            if (scaled !== bitmap) {
+                bitmap.recycle()
+                scaled.recycle()
+            } else {
+                bitmap.recycle()
+            }
+            val base64 = Base64.encodeToString(output.toByteArray(), Base64.NO_WRAP)
+            "image/jpeg" to "data:image/jpeg;base64,$base64"
+        } catch (e: Exception) {
+            Log.d(TAG, "Error encoding picked image", e)
+            null
+        }
+    }
+
+    private fun scaleDown(source: Bitmap, maxEdge: Int): Bitmap {
+        val largest = maxOf(source.width, source.height)
+        if (largest <= maxEdge) {
+            return source
+        }
+        val ratio = maxEdge.toFloat() / largest
+        return Bitmap.createScaledBitmap(
+            source,
+            (source.width * ratio).toInt().coerceAtLeast(1),
+            (source.height * ratio).toInt().coerceAtLeast(1),
+            true
+        )
     }
 
     private fun applySystemBarInsets() {

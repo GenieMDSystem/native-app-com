@@ -11,23 +11,17 @@ import android.webkit.JavascriptInterface
 import android.widget.Toast
 import org.json.JSONObject
 
-/**
- * Callback types from JavaScript → native.
- *
- * type 1 WAITING_ROOM:
- *   { type: 1, data: { url, success, openInBrowser } }
- *
- * type 2 SCHEDULE / CLOSE:
- *   { type: 2, data: { success: true } }  — closes WebView, returns home
- *   { type: 2, data: { close: true } }    — closes WebView, returns home
- *
- * type 3 OPEN_SCHEDULE_LINK:
- *   { type: 3, data: { url, success, openInBrowser } }
- */
+// Callback types from JavaScript -> native.
+// type 1 WAITING_ROOM: { type: 1, data: { url, success, openInBrowser } }
+// type 2 SCHEDULE / CLOSE: { type: 2, data: { success: true } } or { close: true }
+// type 3 OPEN_SCHEDULE_LINK: { type: 3, data: { url, success, openInBrowser } }
+// type 4 OPEN_NATIVE_IMAGE_PICKER: { type: 4, data: { accept, source, multiple } }
+// Native answers with window.onNativeImagePicked(json).
 enum class BridgeAction(val type: Int) {
     WAITING_ROOM(1),
     SCHEDULE(2),
-    OPEN_SCHEDULE_LINK(3);
+    OPEN_SCHEDULE_LINK(3),
+    OPEN_NATIVE_IMAGE_PICKER(4);
 
     companion object {
         fun from(type: Int): BridgeAction? = entries.find { it.type == type }
@@ -51,6 +45,7 @@ data class ScheduleBridgeData(
 interface BridgeCallbackHost {
     fun loadUrlInWebView(url: String)
     fun finishWithResult()
+    fun openNativeImagePicker(multiple: Boolean)
 }
 
 /**
@@ -94,6 +89,14 @@ class BrowserBridge(
                 BridgeAction.WAITING_ROOM -> handleUrlAction(action, parseUrlData(data))
                 BridgeAction.SCHEDULE -> handleSchedule(parseScheduleData(data))
                 BridgeAction.OPEN_SCHEDULE_LINK -> handleUrlAction(action, parseUrlData(data))
+                BridgeAction.OPEN_NATIVE_IMAGE_PICKER -> {
+                    val multiple = data.optBoolean("multiple", false)
+                    Log.d(
+                        TAG,
+                        "OPEN_NATIVE_IMAGE_PICKER accept=${data.optString("accept")} source=${data.optString("source")} multiple=$multiple"
+                    )
+                    mainHandler.post { host.openNativeImagePicker(multiple) }
+                }
             }
         } catch (e: Exception) {
             Log.d(TAG, "Error: invalid callback JSON: $json", e)
@@ -210,6 +213,7 @@ class BrowserBridge(
         BridgeAction.WAITING_ROOM -> "Waiting room"
         BridgeAction.SCHEDULE -> "Schedule"
         BridgeAction.OPEN_SCHEDULE_LINK -> "Schedule link"
+        BridgeAction.OPEN_NATIVE_IMAGE_PICKER -> "Photo library"
     }
 
     private fun toast(message: String) {
