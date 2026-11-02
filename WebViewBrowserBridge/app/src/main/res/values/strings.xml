@@ -3,15 +3,15 @@
     <string name="app_name">WebView Browser Bridge</string>
     <string name="page_load_error">Page failed to load: %1$s</string>
 
-    <string name="default_subdomain">mhc</string>
-    <string name="default_folder">apps2</string>
+    <string name="default_subdomain">dev</string>
+    <string name="default_folder">apps</string>
 
     <string name="setup_title">Server Setup</string>
     <string name="setup_subtitle">Configure your GenieMD environment (saved on this device)</string>
     <string name="setup_subdomain_label">Subdomain</string>
     <string name="setup_subdomain_helper">Full domain: https://{subdomain}.geniemd.net</string>
     <string name="setup_folder_label">Folder</string>
-    <string name="setup_folder_helper">e.g. apps, apps2</string>
+    <string name="setup_folder_helper">e.g. apps</string>
     <string name="setup_save">Save &amp; Continue</string>
     <string name="setup_validation_error">Subdomain and folder are required</string>
     <string name="setup_saved">Environment saved</string>
@@ -27,14 +27,17 @@
     <string name="home_welcome">Welcome, %1$s</string>
     <string name="home_domain_info">%1$s/%2$s</string>
     <string name="home_title">Care Home</string>
-    <string name="home_subtitle">Choose an option to continue in WebView</string>
+    <string name="home_subtitle">Open Visit Doctor in WebView</string>
     <string name="home_mode_live">Live</string>
     <string name="home_mode_local">Local</string>
     <string name="home_mode_switch">Switch between live and local WebView hosts</string>
-    <string name="home_local_info">Local: localhost:4201 (visit) · localhost:4200/rpm (schedules)</string>
-    <string name="btn_visit_doctor">Visit Doctor Now</string>
-    <string name="btn_schedule_visit">Schedule Visit Now</string>
-    <string name="btn_schedules_list">Schedules List</string>
+    <string name="home_local_info">Local: localhost:4201</string>
+    <string name="btn_visit_doctor">Visit Doctor</string>
+    <string name="query_flags_title">Optional query params</string>
+    <string name="query_dependent">dependent=true</string>
+    <string name="query_ignore_location">ignoreLocationCheck=true</string>
+    <string name="query_disable_camera">disableCamera=true</string>
+    <string name="query_for_wr">forWR=true</string>
     <string name="btn_logout">Logout</string>
     <string name="picker_title">Upload a photo</string>
     <string name="picker_take_photo">Take Photo</string>

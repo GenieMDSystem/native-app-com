@@ -35,7 +35,7 @@
             android:textColor="@color/home_subtitle"
             android:textSize="13sp"
             android:gravity="center"
-            tools:text="https://mhc.geniemd.net/apps2" />
+            tools:text="https://dev.geniemd.net/apps" />
 
         <TextView
             android:layout_width="match_parent"
@@ -80,32 +80,50 @@
                 android:textStyle="bold" />
         </LinearLayout>
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="@string/query_flags_title"
+            android:textColor="@color/home_title"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/checkDependent"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/query_dependent"
+            android:textColor="@color/home_title" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/checkIgnoreLocation"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/query_ignore_location"
+            android:textColor="@color/home_title" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/checkDisableCamera"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="@string/query_disable_camera"
+            android:textColor="@color/home_title" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/checkForWr"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/query_for_wr"
+            android:textColor="@color/home_title" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnVisitDoctor"
             android:layout_width="match_parent"
             android:layout_height="56dp"
-            android:layout_marginBottom="16dp"
-            android:text="@string/btn_visit_doctor"
-            android:textAllCaps="false"
-            android:textSize="16sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnScheduleVisit"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginBottom="16dp"
-            android:text="@string/btn_schedule_visit"
-            android:textAllCaps="false"
-            android:textSize="16sp" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnSchedulesList"
-            style="@style/Widget.MaterialComponents.Button.TextButton"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
             android:layout_marginBottom="24dp"
-            android:text="@string/btn_schedules_list"
+            android:text="@string/btn_visit_doctor"
             android:textAllCaps="false"
             android:textSize="16sp" />
 

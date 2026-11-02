@@ -8,7 +8,7 @@ struct AppConfig: Equatable, Codable {
 
     var baseUrl: String { "https://\(subdomain).geniemd.net" }
 
-    /// Display / path base, e.g. https://mhc.geniemd.net/apps2
+    /// Display / path base, e.g. https://dev.geniemd.net/apps
     var environmentUrl: String { "\(baseUrl)/\(folder)" }
 
     var refererUrl: String { "\(baseUrl)/\(folder)/rpm/" }

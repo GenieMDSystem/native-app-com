@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.example.webviewbrowserbridge.data.AppPreferences
+import com.google.android.material.checkbox.MaterialCheckBox
 import com.google.android.material.switchmaterial.SwitchMaterial
 
 /**
@@ -76,21 +77,36 @@ class MainActivity : AppCompatActivity() {
             refreshHostLabel(false)
         }
 
+        val checkDependent = findViewById<MaterialCheckBox>(R.id.checkDependent)
+        val checkIgnoreLocation = findViewById<MaterialCheckBox>(R.id.checkIgnoreLocation)
+        val checkDisableCamera = findViewById<MaterialCheckBox>(R.id.checkDisableCamera)
+        val checkForWr = findViewById<MaterialCheckBox>(R.id.checkForWr)
+        val savedFlags = prefs.getVisitDoctorFlags()
+        checkDependent.isChecked = savedFlags.dependent
+        checkIgnoreLocation.isChecked = savedFlags.ignoreLocationCheck
+        checkDisableCamera.isChecked = savedFlags.disableCamera
+        checkForWr.isChecked = savedFlags.forWR
+
+        fun currentFlags(): VisitDoctorFlags {
+            return VisitDoctorFlags(
+                dependent = checkDependent.isChecked,
+                ignoreLocationCheck = checkIgnoreLocation.isChecked,
+                disableCamera = checkDisableCamera.isChecked,
+                forWR = checkForWr.isChecked,
+            )
+        }
+
+        val persistFlags = { prefs.saveVisitDoctorFlags(currentFlags()) }
+        checkDependent.setOnCheckedChangeListener { _, _ -> persistFlags() }
+        checkIgnoreLocation.setOnCheckedChangeListener { _, _ -> persistFlags() }
+        checkDisableCamera.setOnCheckedChangeListener { _, _ -> persistFlags() }
+        checkForWr.setOnCheckedChangeListener { _, _ -> persistFlags() }
+
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
-            val url = AppDestinations.visitDoctorUrl(config, profile, switchLocal.isChecked)
+            val flags = currentFlags()
+            prefs.saveVisitDoctorFlags(flags)
+            val url = AppDestinations.visitDoctorUrl(config, profile, switchLocal.isChecked, flags)
             Log.d(TAG, "Visit Doctor URL: $url")
-            openWebView(url)
-        }
-
-        findViewById<Button>(R.id.btnScheduleVisit).setOnClickListener {
-            val url = AppDestinations.scheduleVisitUrl(config, profile, switchLocal.isChecked)
-            Log.d(TAG, "Schedule Visit URL: $url")
-            openWebView(url)
-        }
-
-        findViewById<Button>(R.id.btnSchedulesList).setOnClickListener {
-            val url = AppDestinations.schedulesListUrl(config, profile, switchLocal.isChecked)
-            Log.d(TAG, "Schedules List URL: $url")
             openWebView(url)
         }
 

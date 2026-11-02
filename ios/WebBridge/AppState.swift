@@ -22,8 +22,7 @@ final class AppState {
         didSet { UserDefaults.standard.set(useLegacyWebView, forKey: "use_legacy_webview") }
     }
 
-    /// When true, Visit Doctor / Schedule Visit use localhost:4201 and
-    /// Schedules List uses localhost:4200/rpm.
+    /// When true, Visit Doctor uses localhost:4201.
     var useLocalWebHost: Bool {
         didSet {
             if AppDestinations.isLocalHostEnabled {

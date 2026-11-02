@@ -18,55 +18,32 @@ Home also has a **Legacy WebView** toggle to reproduce the photo-picker hang vs 
 
 ---
 
-## New query params
+## Visit Doctor URL
 
-Same flags as Android. Only `fromWebView` differs (`ios` vs `android`).
+Same shape as Android. Only `fromWebView` differs (`ios` vs `android`).
 
-| Param | Value | Visit Doctor Now | Schedule Visit Now | Schedules List |
-|-------|-------|------------------|--------------------|----------------|
-| `disableCamera` | `true` | yes | yes | no |
-| `forWR` | `true` | yes | no | no |
-| **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
+Setup defaults: `subdomain=dev`, `folder=apps`.
+
+Home UI is **Visit Doctor** plus **Logout**. Optional query flags are toggles.
+
+Always included (`protocolName` is **not** added):
+
+```
+https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &fromWebView=ios
+  &openPickerInNative=true
+```
+
+Optional checkboxes (appended only when selected):
+
+- `dependent=true`
+- `ignoreLocationCheck=true`
+- `disableCamera=true`
+- `forWR=true`
 
 `openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Use native types 4 / 5 / 6 instead.
-
-### Visit Doctor Now
-
-```
-https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
-  ?patientLanguageID={languageId}
-  &patientOEMID={oemID}
-  &protocolName=Revamp%20TeleConsultation
-  &dependent=true
-  &fromWebView=ios
-  &ignoreLocationCheck=true
-  &disableCamera=true
-  &forWR=true
-  &openPickerInNative=true     # NEW — native photo / video / file pickers
-```
-
-### Schedule Visit Now
-
-```
-https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
-  ?patientLanguageID={languageId}
-  &patientOEMID={oemID}
-  &protocolName=Revamp%20Scheudle%20a%20TeleConsultation
-  &dependent=true
-  &fromWebView=ios
-  &ignoreLocationCheck=true
-  &disableCamera=true
-  &openPickerInNative=true     # NEW — native photo / video / file pickers
-```
-
-### Schedules List
-
-```
-https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patient-schedule
-  ?fromWebView=ios
-```
-
-No new query params.
 
 ---
 

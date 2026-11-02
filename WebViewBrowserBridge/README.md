@@ -3,14 +3,16 @@
 Kotlin Android app that:
 
 1. Saves environment config (subdomain + folder) and user session
-2. Builds **three WebView URLs** from that data
-3. Hosts those pages in a native WebView with a **JavaScript bridge** (`NativeApp`)
+2. Builds the **Visit Doctor** WebView URL from that data
+3. Hosts that page in a native WebView with a **JavaScript bridge** (`NativeApp`)
+
+Home UI is **Visit Doctor** plus **Logout**. Optional query flags are checkboxes.
 
 ---
 
-## How the three links are constructed
+## How the Visit Doctor link is constructed
 
-URL builders live in `AppDestinations.kt`.  
+URL builder lives in `AppDestinations.kt`.  
 Values come from:
 
 | Source | Fields |
@@ -18,17 +20,7 @@ Values come from:
 | Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` · `environmentUrl` = `https://{subdomain}.geniemd.net/{folder}` |
 | Profile (after login) | `clinicID`, `userID`, `languageId`, `oemID` |
 
-### New query params
-
-These flags were added to the WebView URLs:
-
-| Param | Value | Visit Doctor Now | Schedule Visit Now | Schedules List |
-|-------|-------|------------------|--------------------|----------------|
-| **`disableCamera`** **(new)** | `true` | yes | yes | no |
-| **`forWR`** **(new)** | `true` | yes | no | no |
-| **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
-
-All other query params (`patientLanguageID`, `patientOEMID`, `protocolName`, `dependent`, `fromWebView`, `ignoreLocationCheck`) are unchanged.
+Setup defaults: `subdomain=dev`, `folder=apps`.
 
 `openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Instead it must use the native picker bridge:
 
@@ -38,71 +30,44 @@ All other query params (`patientLanguageID`, `patientOEMID`, `protocolName`, `de
 
 That avoids the iOS WKWebView freeze when Limited Photos access dismisses the system picker without firing `change` / `cancel`.
 
-### 1. Visit Doctor Now (Waiting Room)
+### Visit Doctor
 
-`AppDestinations.visitDoctorUrl(config, profile)`
+`AppDestinations.visitDoctorUrl(config, profile, flags)`
 
-```
-https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
-  ?patientLanguageID={languageId}
-  &patientOEMID={oemID}
-  &protocolName=Revamp%20TeleConsultation
-  &dependent=true
-  &fromWebView=android
-  &ignoreLocationCheck=true
-  &disableCamera=true          # NEW
-  &openPickerInNative=true     # NEW — native camera / photo library
-  &forWR=true                  # NEW — Visit Doctor only
-```
-
-### 2. Schedule Visit Now
-
-`AppDestinations.scheduleVisitUrl(config, profile)`
+Always included:
 
 ```
 https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
   ?patientLanguageID={languageId}
   &patientOEMID={oemID}
-  &protocolName=Revamp%20Scheudle%20a%20TeleConsultation
-  &dependent=true
   &fromWebView=android
-  &ignoreLocationCheck=true
-  &disableCamera=true          # NEW
-  &openPickerInNative=true     # NEW — native camera / photo library
+  &openPickerInNative=true
 ```
 
-### 3. Schedules List
+`protocolName` is **not** added.
 
-`AppDestinations.schedulesListUrl(config, profile)`
+Optional checkboxes on the home screen (appended only when selected):
 
-```
-https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patient-schedule
-  ?fromWebView=android
-```
+| Checkbox | Appended when checked |
+|----------|------------------------|
+| `dependent=true` | `&dependent=true` |
+| `ignoreLocationCheck=true` | `&ignoreLocationCheck=true` |
+| `disableCamera=true` | `&disableCamera=true` |
+| `forWR=true` | `&forWR=true` |
 
 ### Example
 
-New query params are called out below the full URL.
+Defaults `subdomain=dev`, `folder=apps`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`.
 
-With defaults `subdomain=mhc`, `folder=apps2`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`:
+**Always:**
+```
+https://dev.geniemd.net/apps/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true
+```
 
-**Visit Doctor:**
+**All optional flags checked:**
 ```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true
+https://dev.geniemd.net/apps/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&dependent=true&ignoreLocationCheck=true&disableCamera=true&forWR=true
 ```
-**New:** `disableCamera=true`, `openPickerInNative=true`, `forWR=true`
-
-**Schedule Visit:**
-```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true
-```
-**New:** `disableCamera=true`, `openPickerInNative=true`
-
-**Schedules List:**
-```
-https://mhc.geniemd.net/apps2/rpm/#/webview/1000254/0b4a…/patient-schedule?fromWebView=android
-```
-No new query params.
 
 ---
 
@@ -116,67 +81,32 @@ On first launch (Setup screen), or by changing defaults:
 
 | Field | Sample (current) | Production example |
 |-------|------------------|--------------------|
-| Subdomain | `mhc` | your prod subdomain (e.g. `www`, `app`, clinic code) |
-| Folder | `apps2` | your prod folder (e.g. `apps`, `prod`) |
+| Subdomain | `dev` | your prod subdomain (e.g. `www`, `app`, clinic code) |
+| Folder | `apps` | your prod folder (e.g. `apps`, `prod`) |
 
 Resulting base: `https://{subdomain}.geniemd.net/{folder}`
 
 Defaults live in `res/values/strings.xml`:
 
 ```xml
-<string name="default_subdomain">mhc</string>
-<string name="default_folder">apps2</string>
+<string name="default_subdomain">dev</string>
+<string name="default_folder">apps</string>
 ```
 
 Users can also enter production values on the Setup screen; they are saved in SharedPreferences.
 
-### `protocolName` — use the correct protocol title
+### Optional checkboxes
 
-These query values must match the **exact protocol names** configured in your GenieMD / assessment backend:
+Home-screen checkboxes append these only when selected:
 
-| Button | Current sample value | Notes |
-|--------|----------------------|--------|
-| Visit Doctor | `Revamp%20TeleConsultation` | URL-encoded; use your prod waiting-room / teleconsult protocol name |
-| Schedule Visit | `Revamp%20Scheudle%20a%20TeleConsultation` | URL-encoded; use your prod schedule protocol name |
+- `dependent=true`
+- `ignoreLocationCheck=true`
+- `disableCamera=true`
+- `forWR=true`
 
-Change them in `AppDestinations.kt` where the query string is appended, for example:
+### `openPickerInNative=true`
 
-```kotlin
-// Visit Doctor — replace with your production protocol name
-append("&protocolName=Your%20Production%20TeleConsultation&...")
-
-// Schedule Visit — replace with your production schedule protocol name
-append("&protocolName=Your%20Production%20Schedule%20Name&...")
-```
-
-Spaces must be encoded as `%20`.
-
-### `dependent=true` — optional
-
-`&dependent=true` is appended today for Visit Doctor and Schedule Visit.
-
-- **Keep it** if the web flow should run in dependent mode.
-- **Remove it** if you do not want dependent behavior — simply do not append `&dependent=true` in `AppDestinations.kt`.
-
-Schedules List does not use `dependent`.
-
-### `disableCamera=true` **(new)**
-
-`&disableCamera=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
-
-Schedules List does not use `disableCamera`.
-
-### `forWR=true` — Visit Doctor only **(new)**
-
-`&forWR=true` is appended only on **Visit Doctor Now** (waiting room).
-
-Schedule Visit Now and Schedules List do not include `forWR`.
-
-### `openPickerInNative=true` **(new)**
-
-`&openPickerInNative=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
-
-When this flag is present, the web page must use the native picker bridge instead of a file input:
+Always appended on **Visit Doctor**. The web page must use the native picker bridge instead of a file input:
 
 | Need | Send | Native calls |
 |------|------|----------------|
@@ -185,8 +115,6 @@ When this flag is present, the web page must use the native picker bridge instea
 | Document | type `6` | `window.onNativeFilePicked` |
 
 Types 4, 5, and 6 are separate events. Do not answer a video or document request on `onNativeImagePicked`.
-
-Schedules List does not use `openPickerInNative`.
 
 ### Android vs iOS — `fromWebView`
 
@@ -201,7 +129,7 @@ For an iOS WebView host, use the **same URL shapes** and only change:
 fromWebView=android  →  fromWebView=ios
 ```
 
-Apply that change on all three links (Visit Doctor, Schedule Visit, Schedules List). The rest of the path and query params stay the same.
+Apply that change on the Visit Doctor link. The rest of the path and query params stay the same.
 
 An iOS host app lives at the repo root in `ios/WebBridge.xcodeproj`. It uses `fromWebView=ios`. See `../ios/README.md`.
 
@@ -589,14 +517,14 @@ Always check `window.NativeApp` so the same page can run in a normal browser wit
 ## App flow (context)
 
 ```
-Launcher → Setup (first time) → Login → Home (3 buttons) → WebView
+Launcher → Setup (first time) → Login → Home (Visit Doctor + Logout) → WebView
                                       ↑______________________|
                                          type 2 close / logout
 ```
 
-- **Setup:** subdomain + folder (defaults `mhc` / `apps2`), saved in SharedPreferences  
+- **Setup:** subdomain + folder (defaults `dev` / `apps`), saved in SharedPreferences  
 - **Login:** ValidateLogin → Profile → stores `userID`, `clinicID`, `languageId`, `oemID`  
-- **Home:** builds the three URLs above and opens `WebViewActivity`  
+- **Home:** Visit Doctor + Logout; optional query checkboxes; opens `WebViewActivity`  
 - **Logout:** clears session only; config remains  
 
 ---
