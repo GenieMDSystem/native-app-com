@@ -2,6 +2,7 @@ import SwiftUI
 
 struct HomeView: View {
     @Bindable var appState: AppState
+    @State private var flags = VisitDoctorFlags()
 
     var body: some View {
         ScrollView {
@@ -14,14 +15,14 @@ struct HomeView: View {
                     .padding(.bottom, 4)
 
                 Text(appState.useLocalWebHost && AppDestinations.isLocalHostEnabled
-                     ? "Local: localhost:4201 (visit) · localhost:4200/rpm (schedules)"
+                     ? "Local: localhost:4201"
                      : (appState.config?.environmentUrl ?? ""))
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.subtitle)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 8)
 
-                Text("Choose an option to continue in WebView")
+                Text("Open Visit Doctor in WebView")
                     .font(.system(size: 15))
                     .foregroundStyle(AppTheme.subtitle)
                     .multilineTextAlignment(.center)
@@ -55,40 +56,25 @@ struct HomeView: View {
                 .tint(AppTheme.primary)
                 .padding(.bottom, 24)
 
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Optional query params")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.title)
+                    flagToggle("dependent=true", isOn: $flags.dependent)
+                    flagToggle("ignoreLocationCheck=true", isOn: $flags.ignoreLocationCheck)
+                }
+                .padding(.bottom, 16)
+
                 Button {
-                    open(.visitDoctor)
+                    openVisitDoctor()
                 } label: {
-                    Text("Visit Doctor Now")
+                    Text("Visit Doctor")
                         .font(.system(size: 16, weight: .semibold))
                         .frame(maxWidth: .infinity)
                         .frame(height: 56)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(AppTheme.primary)
-                .padding(.bottom, 16)
-
-                Button {
-                    open(.scheduleVisit)
-                } label: {
-                    Text("Schedule Visit Now")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                }
-                .buttonStyle(.bordered)
-                .tint(AppTheme.primary)
-                .padding(.bottom, 16)
-
-                Button {
-                    open(.schedulesList)
-                } label: {
-                    Text("Schedules List")
-                        .font(.system(size: 16, weight: .semibold))
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 56)
-                }
-                .buttonStyle(.borderless)
-                .foregroundStyle(AppTheme.primary)
                 .padding(.bottom, 24)
 
                 Button {
@@ -105,23 +91,30 @@ struct HomeView: View {
             .padding(24)
         }
         .background(AppTheme.background.ignoresSafeArea())
-    }
-
-    private enum Destination {
-        case visitDoctor, scheduleVisit, schedulesList
-    }
-
-    private func open(_ destination: Destination) {
-        guard let config = appState.config, let profile = appState.session?.profile else { return }
-        let url: String
-        switch destination {
-        case .visitDoctor:
-            url = AppDestinations.visitDoctorUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
-        case .scheduleVisit:
-            url = AppDestinations.scheduleVisitUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
-        case .schedulesList:
-            url = AppDestinations.schedulesListUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
+        .onAppear {
+            flags = AppPreferences.shared.visitDoctorFlags
         }
+        .onChange(of: flags) { _, newFlags in
+            AppPreferences.shared.visitDoctorFlags = newFlags
+        }
+    }
+
+    private func flagToggle(_ title: String, isOn: Binding<Bool>) -> some View {
+        Toggle(title, isOn: isOn)
+            .font(.system(size: 15))
+            .foregroundStyle(AppTheme.title)
+            .tint(AppTheme.primary)
+    }
+
+    private func openVisitDoctor() {
+        guard let config = appState.config, let profile = appState.session?.profile else { return }
+        AppPreferences.shared.visitDoctorFlags = flags
+        let url = AppDestinations.visitDoctorUrl(
+            config: config,
+            profile: profile,
+            useLocal: appState.useLocalWebHost,
+            flags: flags
+        )
         print("[WebViewBridge] Opening: \(url)")
         appState.openWebView(url: url)
     }

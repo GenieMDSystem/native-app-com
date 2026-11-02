@@ -17,6 +17,8 @@ final class AppPreferences {
         static let oemID = "oem_id"
         static let displayName = "display_name"
         static let localMode = "local_mode"
+        static let flagDependent = "flag_dependent"
+        static let flagIgnoreLocation = "flag_ignore_location"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -99,6 +101,19 @@ final class AppPreferences {
     var isLocalMode: Bool {
         get { defaults.bool(forKey: Key.localMode) }
         set { defaults.set(newValue, forKey: Key.localMode) }
+    }
+
+    var visitDoctorFlags: VisitDoctorFlags {
+        get {
+            VisitDoctorFlags(
+                dependent: defaults.bool(forKey: Key.flagDependent),
+                ignoreLocationCheck: defaults.bool(forKey: Key.flagIgnoreLocation)
+            )
+        }
+        set {
+            defaults.set(newValue.dependent, forKey: Key.flagDependent)
+            defaults.set(newValue.ignoreLocationCheck, forKey: Key.flagIgnoreLocation)
+        }
     }
 
     func clearAll() {
