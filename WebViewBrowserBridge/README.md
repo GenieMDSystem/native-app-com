@@ -47,17 +47,17 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
 
 `protocolName` is **not** added.
 
-**`{clinicID}` in the path**
+`{clinicID}` **in the path**
 
 - Single clinic: `{clinicID}` is the profile `clinicID`.
 - Multi-clinic: `{clinicID}` is the **selected** clinic id (not the profile clinic).
 
 ### Multi-clinic
 
-When the user is in a multi-clinic setup, also send:
+When the user is in a multi-clinic setup, also send these **query params**:
 
-| Param | Value |
-|-------|--------|
+| Query param | Value |
+|-------------|--------|
 | `multiClinic` | `true` |
 | `masterClinic` | profile `clinicID` (same value that used to go in the path `{clinicID}`) |
 
@@ -89,16 +89,19 @@ Optional checkboxes on the home screen (appended only when selected):
 Defaults `subdomain=dev`, `folder=zoom`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`.
 
 **Always:**
+
 ```
 https://dev.geniemd.net/zoom/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true
 ```
 
 **Optional flags checked:**
+
 ```
 https://dev.geniemd.net/zoom/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&dependent=true&ignoreLocationCheck=true
 ```
 
 **Multi-clinic** (selected clinic `2000100`, profile/master clinic `1000254`):
+
 ```
 https://dev.geniemd.net/zoom/assessment/#/protocol/2000100/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&multiClinic=true&masterClinic=1000254
 ```
@@ -171,7 +174,7 @@ An iOS host app lives at the repo root in `ios/WebBridge.xcodeproj`. It uses `fr
 
 ## WebView native bridge
 
-The WebView injects a JavaScript interface named **`NativeApp`**. The web app may also call `window.callNative(type, data)`, which forwards to the same handler.
+The WebView injects a JavaScript interface named `NativeApp`. The web app may also call `window.callNative(type, data)`, which forwards to the same handler.
 
 ```javascript
 NativeApp.callback(JSON.stringify({ type: number, data: { ... } }));
@@ -559,7 +562,7 @@ Launcher → Setup (first time) → Login → Home (Visit Doctor + Logout) → W
 - **Setup:** subdomain + folder (defaults `dev` / `zoom`), saved in SharedPreferences  
 - **Login:** ValidateLogin → Profile → stores `userID`, `clinicID`, `languageId`, `oemID`  
 - **Home:** Visit Doctor + Logout; optional query checkboxes; opens `WebViewActivity`  
-- **Logout:** clears session only; config remains  
+- **Logout:** clears session only; config remains
 
 ---
 
@@ -579,11 +582,9 @@ Launcher → Setup (first time) → Login → Home (Visit Doctor + Logout) → W
 
 ## Logcat
 
-Filter tag: **`WebViewBridge`**
+Filter tag: `WebViewBridge`
 
 Useful messages: URL loads, bridge callbacks, browser launch, permission / file-chooser events.
-
-
 
 for forwading local link
 adb reverse tcp:4200 tcp:4200

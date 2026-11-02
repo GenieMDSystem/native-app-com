@@ -43,12 +43,12 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
 
 ### Multi-clinic
 
-When the user is in a multi-clinic setup, also send:
+When the user is in a multi-clinic setup, also send these **query params**:
 
-| Param | Value |
-|-------|--------|
+| Query param | Value |
+|-------------|--------|
 | `multiClinic` | `true` |
-| `masterClinic` | profile `clinicID` |
+| `masterClinic` | profile `clinicID` (same value that used to go in the path `{clinicID}`) |
 
 Path `{clinicID}` = selected clinic id.
 
