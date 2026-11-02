@@ -79,28 +79,20 @@ class MainActivity : AppCompatActivity() {
 
         val checkDependent = findViewById<MaterialCheckBox>(R.id.checkDependent)
         val checkIgnoreLocation = findViewById<MaterialCheckBox>(R.id.checkIgnoreLocation)
-        val checkDisableCamera = findViewById<MaterialCheckBox>(R.id.checkDisableCamera)
-        val checkForWr = findViewById<MaterialCheckBox>(R.id.checkForWr)
         val savedFlags = prefs.getVisitDoctorFlags()
         checkDependent.isChecked = savedFlags.dependent
         checkIgnoreLocation.isChecked = savedFlags.ignoreLocationCheck
-        checkDisableCamera.isChecked = savedFlags.disableCamera
-        checkForWr.isChecked = savedFlags.forWR
 
         fun currentFlags(): VisitDoctorFlags {
             return VisitDoctorFlags(
                 dependent = checkDependent.isChecked,
                 ignoreLocationCheck = checkIgnoreLocation.isChecked,
-                disableCamera = checkDisableCamera.isChecked,
-                forWR = checkForWr.isChecked,
             )
         }
 
         val persistFlags = { prefs.saveVisitDoctorFlags(currentFlags()) }
         checkDependent.setOnCheckedChangeListener { _, _ -> persistFlags() }
         checkIgnoreLocation.setOnCheckedChangeListener { _, _ -> persistFlags() }
-        checkDisableCamera.setOnCheckedChangeListener { _, _ -> persistFlags() }
-        checkForWr.setOnCheckedChangeListener { _, _ -> persistFlags() }
 
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
             val flags = currentFlags()

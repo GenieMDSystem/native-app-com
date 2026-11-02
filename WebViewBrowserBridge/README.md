@@ -20,7 +20,7 @@ Values come from:
 | Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` · `environmentUrl` = `https://{subdomain}.geniemd.net/{folder}` |
 | Profile (after login) | `clinicID`, `userID`, `languageId`, `oemID` |
 
-Setup defaults: `subdomain=dev`, `folder=apps`.
+Setup defaults: `subdomain=dev`, `folder=zoom`.
 
 `openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Instead it must use the native picker bridge:
 
@@ -52,21 +52,21 @@ Optional checkboxes on the home screen (appended only when selected):
 |----------|------------------------|
 | `dependent=true` | `&dependent=true` |
 | `ignoreLocationCheck=true` | `&ignoreLocationCheck=true` |
-| `disableCamera=true` | `&disableCamera=true` |
-| `forWR=true` | `&forWR=true` |
+
+`disableCamera` and `forWR` are hidden for now and are **not** added to the URL.
 
 ### Example
 
-Defaults `subdomain=dev`, `folder=apps`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`.
+Defaults `subdomain=dev`, `folder=zoom`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`.
 
 **Always:**
 ```
-https://dev.geniemd.net/apps/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true
+https://dev.geniemd.net/zoom/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true
 ```
 
-**All optional flags checked:**
+**Optional flags checked:**
 ```
-https://dev.geniemd.net/apps/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&dependent=true&ignoreLocationCheck=true&disableCamera=true&forWR=true
+https://dev.geniemd.net/zoom/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&dependent=true&ignoreLocationCheck=true
 ```
 
 ---
@@ -82,7 +82,7 @@ On first launch (Setup screen), or by changing defaults:
 | Field | Sample (current) | Production example |
 |-------|------------------|--------------------|
 | Subdomain | `dev` | your prod subdomain (e.g. `www`, `app`, clinic code) |
-| Folder | `apps` | your prod folder (e.g. `apps`, `prod`) |
+| Folder | `zoom` | your prod folder (e.g. `zoom`, `apps`) |
 
 Resulting base: `https://{subdomain}.geniemd.net/{folder}`
 
@@ -90,7 +90,7 @@ Defaults live in `res/values/strings.xml`:
 
 ```xml
 <string name="default_subdomain">dev</string>
-<string name="default_folder">apps</string>
+<string name="default_folder">zoom</string>
 ```
 
 Users can also enter production values on the Setup screen; they are saved in SharedPreferences.
@@ -101,8 +101,8 @@ Home-screen checkboxes append these only when selected:
 
 - `dependent=true`
 - `ignoreLocationCheck=true`
-- `disableCamera=true`
-- `forWR=true`
+
+`disableCamera` and `forWR` are hidden for now and are **not** added to the URL.
 
 ### `openPickerInNative=true`
 
@@ -522,7 +522,7 @@ Launcher → Setup (first time) → Login → Home (Visit Doctor + Logout) → W
                                          type 2 close / logout
 ```
 
-- **Setup:** subdomain + folder (defaults `dev` / `apps`), saved in SharedPreferences  
+- **Setup:** subdomain + folder (defaults `dev` / `zoom`), saved in SharedPreferences  
 - **Login:** ValidateLogin → Profile → stores `userID`, `clinicID`, `languageId`, `oemID`  
 - **Home:** Visit Doctor + Logout; optional query checkboxes; opens `WebViewActivity`  
 - **Logout:** clears session only; config remains  

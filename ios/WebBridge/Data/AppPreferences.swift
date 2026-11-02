@@ -17,10 +17,6 @@ final class AppPreferences {
         static let oemID = "oem_id"
         static let displayName = "display_name"
         static let localMode = "local_mode"
-        static let flagDependent = "flag_dependent"
-        static let flagIgnoreLocation = "flag_ignore_location"
-        static let flagDisableCamera = "flag_disable_camera"
-        static let flagForWR = "flag_for_wr"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -103,23 +99,6 @@ final class AppPreferences {
     var isLocalMode: Bool {
         get { defaults.bool(forKey: Key.localMode) }
         set { defaults.set(newValue, forKey: Key.localMode) }
-    }
-
-    var visitDoctorFlags: VisitDoctorFlags {
-        get {
-            VisitDoctorFlags(
-                dependent: defaults.bool(forKey: Key.flagDependent),
-                ignoreLocationCheck: defaults.bool(forKey: Key.flagIgnoreLocation),
-                disableCamera: defaults.bool(forKey: Key.flagDisableCamera),
-                forWR: defaults.bool(forKey: Key.flagForWR)
-            )
-        }
-        set {
-            defaults.set(newValue.dependent, forKey: Key.flagDependent)
-            defaults.set(newValue.ignoreLocationCheck, forKey: Key.flagIgnoreLocation)
-            defaults.set(newValue.disableCamera, forKey: Key.flagDisableCamera)
-            defaults.set(newValue.forWR, forKey: Key.flagForWR)
-        }
     }
 
     func clearAll() {

@@ -18,32 +18,55 @@ Home also has a **Legacy WebView** toggle to reproduce the photo-picker hang vs 
 
 ---
 
-## Visit Doctor URL
+## New query params
 
-Same shape as Android. Only `fromWebView` differs (`ios` vs `android`).
+Same flags as Android. Only `fromWebView` differs (`ios` vs `android`).
 
-Setup defaults: `subdomain=dev`, `folder=apps`.
+| Param | Value | Visit Doctor Now | Schedule Visit Now | Schedules List |
+|-------|-------|------------------|--------------------|----------------|
+| `disableCamera` | `true` | yes | yes | no |
+| `forWR` | `true` | yes | no | no |
+| **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
 
-Home UI is **Visit Doctor** plus **Logout**. Optional query flags are toggles.
+`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Use native types 4 / 5 / 6 instead.
 
-Always included (`protocolName` is **not** added):
+### Visit Doctor Now
 
 ```
 https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
   ?patientLanguageID={languageId}
   &patientOEMID={oemID}
+  &protocolName=Revamp%20TeleConsultation
+  &dependent=true
   &fromWebView=ios
-  &openPickerInNative=true
+  &ignoreLocationCheck=true
+  &disableCamera=true
+  &forWR=true
+  &openPickerInNative=true     # NEW — native photo / video / file pickers
 ```
 
-Optional checkboxes (appended only when selected):
+### Schedule Visit Now
 
-- `dependent=true`
-- `ignoreLocationCheck=true`
-- `disableCamera=true`
-- `forWR=true`
+```
+https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &protocolName=Revamp%20Scheudle%20a%20TeleConsultation
+  &dependent=true
+  &fromWebView=ios
+  &ignoreLocationCheck=true
+  &disableCamera=true
+  &openPickerInNative=true     # NEW — native photo / video / file pickers
+```
 
-`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Use native types 4 / 5 / 6 instead.
+### Schedules List
+
+```
+https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patient-schedule
+  ?fromWebView=ios
+```
+
+No new query params.
 
 ---
 

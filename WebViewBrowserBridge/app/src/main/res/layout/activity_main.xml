@@ -35,7 +35,7 @@
             android:textColor="@color/home_subtitle"
             android:textSize="13sp"
             android:gravity="center"
-            tools:text="https://dev.geniemd.net/apps" />
+            tools:text="https://dev.geniemd.net/zoom" />
 
         <TextView
             android:layout_width="match_parent"
@@ -100,22 +100,8 @@
             android:id="@+id/checkIgnoreLocation"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="@string/query_ignore_location"
-            android:textColor="@color/home_title" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/checkDisableCamera"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="@string/query_disable_camera"
-            android:textColor="@color/home_title" />
-
-        <com.google.android.material.checkbox.MaterialCheckBox
-            android:id="@+id/checkForWr"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
-            android:text="@string/query_for_wr"
+            android:text="@string/query_ignore_location"
             android:textColor="@color/home_title" />
 
         <com.google.android.material.button.MaterialButton

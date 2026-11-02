@@ -86,8 +86,6 @@ class AppPreferences(context: Context) {
         return VisitDoctorFlags(
             dependent = prefs.getBoolean(KEY_FLAG_DEPENDENT, false),
             ignoreLocationCheck = prefs.getBoolean(KEY_FLAG_IGNORE_LOCATION, false),
-            disableCamera = prefs.getBoolean(KEY_FLAG_DISABLE_CAMERA, false),
-            forWR = prefs.getBoolean(KEY_FLAG_FOR_WR, false),
         )
     }
 
@@ -95,8 +93,6 @@ class AppPreferences(context: Context) {
         prefs.edit()
             .putBoolean(KEY_FLAG_DEPENDENT, flags.dependent)
             .putBoolean(KEY_FLAG_IGNORE_LOCATION, flags.ignoreLocationCheck)
-            .putBoolean(KEY_FLAG_DISABLE_CAMERA, flags.disableCamera)
-            .putBoolean(KEY_FLAG_FOR_WR, flags.forWR)
             .apply()
     }
 
@@ -118,7 +114,5 @@ class AppPreferences(context: Context) {
         private const val KEY_DISPLAY_NAME = "display_name"
         private const val KEY_FLAG_DEPENDENT = "flag_dependent"
         private const val KEY_FLAG_IGNORE_LOCATION = "flag_ignore_location"
-        private const val KEY_FLAG_DISABLE_CAMERA = "flag_disable_camera"
-        private const val KEY_FLAG_FOR_WR = "flag_for_wr"
     }
 }

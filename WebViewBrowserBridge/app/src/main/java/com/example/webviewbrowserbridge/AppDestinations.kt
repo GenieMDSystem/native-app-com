@@ -6,8 +6,6 @@ import com.example.webviewbrowserbridge.data.UserProfile
 data class VisitDoctorFlags(
     val dependent: Boolean = false,
     val ignoreLocationCheck: Boolean = false,
-    val disableCamera: Boolean = false,
-    val forWR: Boolean = false,
 )
 
 /**
@@ -60,8 +58,6 @@ object AppDestinations {
             append("&openPickerInNative=true")
             if (flags.dependent) append("&dependent=true")
             if (flags.ignoreLocationCheck) append("&ignoreLocationCheck=true")
-            if (flags.disableCamera) append("&disableCamera=true")
-            if (flags.forWR) append("&forWR=true")
         }
     }
 }
