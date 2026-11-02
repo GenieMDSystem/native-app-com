@@ -4,31 +4,48 @@ import UIKit
 import UniformTypeIdentifiers
 import WebKit
  
-/// Native Take Photo / Photo Library chooser for type 4.
-/// Answers the page with `window.onNativeImagePicked(jsonString)` like Android.
-final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+/// Native pickers for types 4 (photo), 5 (video), and 6 (document).
+/// Answers the matching `window.onNative*Picked(jsonString)` callback.
+final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImagePickerControllerDelegate, UINavigationControllerDelegate, UIDocumentPickerDelegate {
+    enum Kind {
+        case image
+        case video
+        case file
+
+        var jsCallback: String {
+            switch self {
+            case .image: return "onNativeImagePicked"
+            case .video: return "onNativeVideoPicked"
+            case .file: return "onNativeFilePicked"
+            }
+        }
+    }
+
     struct PickedFile {
         let mimeType: String
         let dataUrl: String
         let fileName: String
     }
- 
+
     private static let maxPassThroughBytes = 1_500_000
+    private static let maxBridgeFileBytes = 20_000_000
     private static let passThroughMimes: Set<String> = [
         "image/jpeg",
         "image/png",
         "image/webp",
         "image/gif"
     ]
- 
+
     private weak var webView: WKWebView?
     private var allowsMultiple = false
     private var didDeliver = false
+    private var kind: Kind = .image
  
     func present(from webView: WKWebView, multiple: Bool) {
         self.webView = webView
         self.allowsMultiple = multiple
         self.didDeliver = false
+        self.kind = .image
  
         guard let presenter = Self.topPresenter(from: webView) else {
             deliver(cancelled: true, files: [])
@@ -59,6 +76,39 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
         }
         presenter.present(sheet, animated: true)
     }
+
+    func presentVideo(from webView: WKWebView) {
+        begin(from: webView, kind: .video, multiple: false)
+        guard let presenter = Self.topPresenter(from: webView) else {
+            deliver(cancelled: true, files: [])
+            return
+        }
+        var config = PHPickerConfiguration()
+        config.filter = .videos
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = self
+        presenter.present(picker, animated: true)
+    }
+
+    func presentFile(from webView: WKWebView) {
+        begin(from: webView, kind: .file, multiple: false)
+        guard let presenter = Self.topPresenter(from: webView) else {
+            deliver(cancelled: true, files: [])
+            return
+        }
+        let picker = UIDocumentPickerViewController(forOpeningContentTypes: [.item], asCopy: true)
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        presenter.present(picker, animated: true)
+    }
+
+    private func begin(from webView: WKWebView, kind: Kind, multiple: Bool) {
+        self.webView = webView
+        self.kind = kind
+        self.allowsMultiple = multiple
+        self.didDeliver = false
+    }
  
     // MARK: - Photo Library (PHPicker, no photo permission)
  
@@ -81,21 +131,69 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
             self.loadPickerResults(results)
         }
     }
- 
+
+    func documentPickerWasCancelled(_ controller: UIDocumentPickerViewController) {
+        deliver(cancelled: true, files: [])
+    }
+
+    func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
+        guard let url = urls.first else {
+            deliver(cancelled: true, files: [])
+            return
+        }
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer {
+                if accessed {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            let file = NativeImagePicker.encodeRawFile(
+                url: url,
+                fallbackName: "native-file",
+                defaultMime: "application/octet-stream"
+            )
+            DispatchQueue.main.async {
+                if let file {
+                    self?.deliver(cancelled: false, files: [file])
+                } else {
+                    self?.deliver(cancelled: true, files: [])
+                }
+            }
+        }
+    }
+
     private func loadPickerResults(_ results: [PHPickerResult]) {
         let group = DispatchGroup()
         var files: [PickedFile] = []
         let lock = NSLock()
- 
+        let kind = self.kind
+
         for result in results {
             group.enter()
-            let suggestedName = result.itemProvider.suggestedName
-            result.itemProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
-                defer { group.leave() }
-                guard let data, let file = NativeImagePicker.encodeImage(data, suggestedName: suggestedName) else { return }
-                lock.lock()
-                files.append(file)
-                lock.unlock()
+            if kind == .video {
+                result.itemProvider.loadFileRepresentation(forTypeIdentifier: UTType.movie.identifier) { url, _ in
+                    defer { group.leave() }
+                    guard let url,
+                          let file = NativeImagePicker.encodeRawFile(
+                            url: url,
+                            fallbackName: "native-video",
+                            defaultMime: "video/mp4"
+                          )
+                    else { return }
+                    lock.lock()
+                    files.append(file)
+                    lock.unlock()
+                }
+            } else {
+                let suggestedName = result.itemProvider.suggestedName
+                result.itemProvider.loadDataRepresentation(forTypeIdentifier: UTType.image.identifier) { data, _ in
+                    defer { group.leave() }
+                    guard let data, let file = NativeImagePicker.encodeImage(data, suggestedName: suggestedName) else { return }
+                    lock.lock()
+                    files.append(file)
+                    lock.unlock()
+                }
             }
         }
  
@@ -179,27 +277,8 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
             "success": !cancelled && !files.isEmpty,
             "files": fileMaps
         ]
-        guard JSONSerialization.isValidJSONObject(payload),
-              let data = try? JSONSerialization.data(withJSONObject: payload),
-              let json = String(data: data, encoding: .utf8),
-              let literal = Self.javaScriptStringLiteral(json)
-        else { return }
- 
-        print("[WebViewBridge] onNativeImagePicked cancelled=\(cancelled) count=\(files.count)")
-        let script = "window.onNativeImagePicked && window.onNativeImagePicked(\(literal))"
-        DispatchQueue.main.async { [weak self] in
-            self?.webView?.evaluateJavaScript(script, completionHandler: nil)
-        }
-    }
- 
-    /// Quotes `value` as a JSON string (`"..."`) so it can be embedded in JavaScript.
-    /// `JSONSerialization` only accepts an array or dictionary at the top level; a bare
-    /// string raises `NSInvalidArgumentException`, which `try?` does not catch.
-    private static func javaScriptStringLiteral(_ value: String) -> String? {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.withoutEscapingSlashes]
-        guard let data = try? encoder.encode(value) else { return nil }
-        return String(data: data, encoding: .utf8)
+        print("[WebViewBridge] \(kind.jsCallback) cancelled=\(cancelled) count=\(files.count)")
+        NativePickerScript.evaluate(functionName: kind.jsCallback, payload: payload, webView: webView)
     }
  
     static func encodeImage(_ data: Data, suggestedName: String?) -> PickedFile? {
@@ -208,7 +287,7 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
         let passThrough = Self.passThroughMimes.contains(sourceMime) && data.count <= Self.maxPassThroughBytes
         if passThrough {
             let mimeType = sourceMime
-            let fileName = fileName(suggestedName: suggestedName, mimeType: mimeType)
+            let fileName = fileName(suggestedName: suggestedName, mimeType: mimeType, fallbackName: "native-photo")
             return PickedFile(
                 mimeType: mimeType,
                 dataUrl: "data:\(mimeType);base64,\(data.base64EncodedString())",
@@ -216,7 +295,7 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
             )
         }
         guard let image = UIImage(data: data) else { return nil }
-        return encodeJPEG(image, fileName: fileName(suggestedName: suggestedName, mimeType: "image/jpeg"))
+        return encodeJPEG(image, fileName: fileName(suggestedName: suggestedName, mimeType: "image/jpeg", fallbackName: "native-photo"))
     }
  
     static func encodeJPEG(_ image: UIImage, fileName: String) -> PickedFile? {
@@ -229,11 +308,54 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
         )
     }
  
-    private static func fileName(suggestedName: String?, mimeType: String) -> String {
+    static func encodeRawFile(url: URL, fallbackName: String, defaultMime: String) -> PickedFile? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return encodeRawBytes(
+            data,
+            suggestedName: url.lastPathComponent,
+            fallbackName: fallbackName,
+            defaultMime: mimeFromPath(url.lastPathComponent) ?? defaultMime
+        )
+    }
+
+    static func encodeRawBytes(
+        _ data: Data?,
+        suggestedName: String?,
+        fallbackName: String,
+        defaultMime: String
+    ) -> PickedFile? {
+        guard let data, !data.isEmpty, data.count <= maxBridgeFileBytes else { return nil }
+        let mimeType = defaultMime
+        let name = fileName(suggestedName: suggestedName, mimeType: mimeType, fallbackName: fallbackName)
+        return PickedFile(
+            mimeType: mimeType,
+            dataUrl: "data:\(mimeType);base64,\(data.base64EncodedString())",
+            fileName: name
+        )
+    }
+
+    private static func mimeFromPath(_ name: String) -> String? {
+        let ext = URL(fileURLWithPath: name).pathExtension.lowercased()
+        switch ext {
+        case "pdf": return "application/pdf"
+        case "txt": return "text/plain"
+        case "json": return "application/json"
+        case "csv": return "text/csv"
+        case "doc": return "application/msword"
+        case "docx": return "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        case "mp4": return "video/mp4"
+        case "mov": return "video/quicktime"
+        case "jpg", "jpeg": return "image/jpeg"
+        case "png": return "image/png"
+        default: return nil
+        }
+    }
+
+    private static func fileName(suggestedName: String?, mimeType: String, fallbackName: String = "native-photo") -> String {
         let ext = extensionFor(mimeType)
         let raw = suggestedName?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         if raw.isEmpty {
-            return "native-photo.\(ext)"
+            return "\(fallbackName).\(ext)"
         }
         if raw.contains(".") {
             return raw
@@ -269,7 +391,11 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
         case "image/png": return "png"
         case "image/webp": return "webp"
         case "image/gif": return "gif"
-        default: return "jpg"
+        case "video/mp4": return "mp4"
+        case "video/quicktime": return "mov"
+        case "application/pdf": return "pdf"
+        case "application/octet-stream": return "bin"
+        default: return mimeType.split(separator: "/").last.map(String.init)?.split(separator: "+").first.map(String.init) ?? "bin"
         }
     }
  

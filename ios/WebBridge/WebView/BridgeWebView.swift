@@ -55,6 +55,7 @@ struct BridgeWebView: UIViewRepresentable {
         weak var webView: WKWebView?
         var loadURLRequest: String?
         private let imagePicker = NativeImagePicker()
+        private let location = NativeLocation()
 
         init(parent: BridgeWebView) {
             self.parent = parent
@@ -81,6 +82,30 @@ struct BridgeWebView: UIViewRepresentable {
                 return
             }
             imagePicker.present(from: webView, multiple: multiple)
+        }
+
+        func openNativeVideoPicker() {
+            guard let webView else {
+                parent.onMessage("Video picker unavailable")
+                return
+            }
+            imagePicker.presentVideo(from: webView)
+        }
+
+        func openNativeFilePicker() {
+            guard let webView else {
+                parent.onMessage("File picker unavailable")
+                return
+            }
+            imagePicker.presentFile(from: webView)
+        }
+
+        func getNativeLocation(enableHighAccuracy: Bool, timeoutMs: Int) {
+            guard let webView else {
+                parent.onMessage("Location unavailable")
+                return
+            }
+            location.request(from: webView, enableHighAccuracy: enableHighAccuracy, timeoutMs: timeoutMs)
         }
 
         // MARK: - WKScriptMessageHandler

@@ -24,9 +24,11 @@ Same flags as Android. Only `fromWebView` differs (`ios` vs `android`).
 
 | Param | Value | Visit Doctor Now | Schedule Visit Now | Schedules List |
 |-------|-------|------------------|--------------------|----------------|
-| **`disableCamera`** **(new)** | `true` | yes | yes | no |
-| **`forWR`** **(new)** | `true` | yes | no | no |
+| `disableCamera` | `true` | yes | yes | no |
+| `forWR` | `true` | yes | no | no |
 | **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
+
+`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Use native types 4 / 5 / 6 instead.
 
 ### Visit Doctor Now
 
@@ -38,9 +40,9 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &dependent=true
   &fromWebView=ios
   &ignoreLocationCheck=true
-  &disableCamera=true          # NEW
-  &openPickerInNative=true     # NEW
-  &forWR=true                  # NEW — Visit Doctor only
+  &disableCamera=true
+  &forWR=true
+  &openPickerInNative=true     # NEW — native photo / video / file pickers
 ```
 
 ### Schedule Visit Now
@@ -53,8 +55,8 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &dependent=true
   &fromWebView=ios
   &ignoreLocationCheck=true
-  &disableCamera=true          # NEW
-  &openPickerInNative=true     # NEW
+  &disableCamera=true
+  &openPickerInNative=true     # NEW — native photo / video / file pickers
 ```
 
 ### Schedules List
@@ -68,30 +70,45 @@ No new query params.
 
 ---
 
-## File picker bridge (type 4)
+## Native bridge (types 1–8)
 
-When `openPickerInNative=true`, the web page must **not** use `<input type="file">`. That WKWebView picker freezes the UI after Limited Photos dismiss.
+Same contract as Android. Web calls `NativeApp.callback(...)` or `window.callNative(type, data)`.
 
-### Web → native (send)
+Must match PTX `bridge-action.constant.ts`.
+
+| type | Meaning | Web → native | Native → web |
+|------|---------|--------------|--------------|
+| 1 | Waiting room | `{ url, success, openInBrowser }` | — (opens browser then closes WebView) |
+| 2 | Close WebView | `{ success, close }` | — |
+| 3 | Open schedule link | `{ url, success, openInBrowser }` | — (same as type 1) |
+| 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
+| **5** **(new)** | Video picker | `{ accept: "video/*", source: "photoLibrary", multiple: false }` | `window.onNativeVideoPicked` |
+| **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
+| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — (`_blank` = Safari, `_self` = same WebView; does **not** close) |
+| **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
+
+Types 4, 5, and 6 are separate. Do not answer a video or document request on `onNativeImagePicked`.
+
+Native always calls the page with a **JSON string**:
 
 ```javascript
-NativeApp.callback(JSON.stringify({
-  type: 4,
-  data: { accept: "image/*", source: "camera-or-library", multiple: false }
-}));
+window.onNativeImagePicked(JSON.stringify({ ... }))
+window.onNativeVideoPicked(JSON.stringify({ ... }))
+window.onNativeFilePicked(JSON.stringify({ ... }))
+window.onNativeLocation(JSON.stringify({ ... }))
 ```
 
-Native shows **Take Photo** / **Photo Library** (same as Android).
+### Type 4 — Photo
 
-### Native → web (receive)
+**Send:**
 
-Native calls a global function. The argument is a **JSON string**:
-
-```javascript
-window.onNativeImagePicked(jsonString)
+```json
+{ "type": 4, "data": { "accept": "image/*", "source": "photoLibrary", "multiple": false } }
 ```
 
-Success:
+`multiple: true` allows more than one library photo. Camera always returns one file.
+
+**Receive** (`window.onNativeImagePicked`):
 
 ```json
 {
@@ -107,22 +124,93 @@ Success:
 }
 ```
 
-Cancel:
+Cancel: `{ "cancelled": true, "success": false, "files": [] }`
+
+### Type 5 — Video **(new)**
+
+**Send:**
+
+```json
+{ "type": 5, "data": { "accept": "video/*", "source": "photoLibrary", "multiple": false } }
+```
+
+**Receive** (`window.onNativeVideoPicked`):
 
 ```json
 {
-  "cancelled": true,
-  "success": false,
-  "files": []
+  "cancelled": false,
+  "success": true,
+  "files": [
+    {
+      "mimeType": "video/mp4",
+      "fileName": "native-video.mp4",
+      "dataUrl": "data:video/mp4;base64,AAAA..."
+    }
+  ]
 }
 ```
 
-Register `window.onNativeImagePicked` before sending type 4. Parse the string, convert each `dataUrl` to a `File`, then upload as usual.
+### Type 6 — Document **(new)**
 
-See `WebViewBrowserBridge/README.md` for types 1–3 and a full JS example.
+**Send:**
+
+```json
+{ "type": 6, "data": { "accept": "*/*", "source": "files", "multiple": false } }
+```
+
+**Receive** (`window.onNativeFilePicked`):
+
+```json
+{
+  "cancelled": false,
+  "success": true,
+  "files": [
+    {
+      "mimeType": "application/pdf",
+      "fileName": "record.pdf",
+      "dataUrl": "data:application/pdf;base64,JVBERi0..."
+    }
+  ]
+}
+```
+
+### Type 7 — Open a URL **(new)**
+
+Does **not** close the WebView.
+
+```json
+{ "type": 7, "data": { "url": "https://example.com", "success": true, "openInBrowser": true, "target": "_blank" } }
+```
+
+- `target: "_blank"` or `openInBrowser: true` → open in Safari
+- `target: "_self"` → load inside the same WebView
+
+### Type 8 — Location **(new)**
+
+**Send:**
+
+```json
+{ "type": 8, "data": { "enableHighAccuracy": false, "timeout": 30000 } }
+```
+
+**Receive** (`window.onNativeLocation`):
+
+Granted: `{ "success": true, "latitude": 37.77, "longitude": -122.42 }`
+
+Failed: `{ "success": false, "code": 1 }`
+
+| `code` | Meaning |
+|--------|---------|
+| `1` | Permission denied |
+| `2` | Position unavailable |
+| `3` | Timed out |
+
+Register the matching `window.onNative*` handler **before** sending the type. Parse the JSON string, convert each picker `dataUrl` to a `File`, and upload as usual.
+
+See `WebViewBrowserBridge/README.md` for types 1–3 and a full JS helper example.
 
 ---
 
 ## Native logs
 
-Filter Xcode console for **`[WebViewBridge]`**. Type 1 (waiting room) and type 3 (schedule link) print the received URL.
+Filter Xcode console for **`[WebViewBridge]`**. Type 1 (waiting room), type 3 (schedule link), and type 7 print the received URL.

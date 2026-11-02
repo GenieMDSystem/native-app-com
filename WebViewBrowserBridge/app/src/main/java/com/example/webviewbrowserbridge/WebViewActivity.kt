@@ -52,6 +52,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         private const val TAG = "WebViewBridge"
         private const val EXTRA_URL = "extra_url"
         private const val MAX_PASS_THROUGH_BYTES = 1_500_000
+        private const val MAX_BRIDGE_FILE_BYTES = 20_000_000
         private val PASS_THROUGH_MIMES = setOf(
             "image/jpeg",
             "image/png",
@@ -70,8 +71,10 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     private lateinit var progressBar: ProgressBar
     private lateinit var permissionHelper: WebViewPermissionHelper
     private lateinit var fileChooserHelper: WebViewFileChooserHelper
+    private lateinit var locationHelper: NativeLocationHelper
     private var cameraPhotoUri: Uri? = null
     private var pickerCancelledDelivered = false
+    private var pendingPickerCallback = NativePickerCallback.IMAGE
 
     private var pickerAllowsMultiple = false
 
@@ -80,7 +83,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
         if (uri == null) {
-            deliverNativeImageResult(cancelled = true, files = emptyList())
+            deliverNativePickerResult(cancelled = true, files = emptyList())
             return@registerForActivityResult
         }
         encodeUrisOnBackground(listOf(uri))
@@ -90,7 +93,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         ActivityResultContracts.PickMultipleVisualMedia()
     ) { uris ->
         if (uris.isNullOrEmpty()) {
-            deliverNativeImageResult(cancelled = true, files = emptyList())
+            deliverNativePickerResult(cancelled = true, files = emptyList())
             return@registerForActivityResult
         }
         encodeUrisOnBackground(uris)
@@ -102,7 +105,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         val uri = cameraPhotoUri
         cameraPhotoUri = null
         if (!success || uri == null) {
-            deliverNativeImageResult(cancelled = true, files = emptyList())
+            deliverNativePickerResult(cancelled = true, files = emptyList())
             return@registerForActivityResult
         }
         encodeUrisOnBackground(listOf(uri))
@@ -115,8 +118,28 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             launchCameraCapture()
         } else {
             Toast.makeText(this, R.string.picker_camera_unavailable, Toast.LENGTH_SHORT).show()
-            deliverNativeImageResult(cancelled = true, files = emptyList())
+            deliverNativePickerResult(cancelled = true, files = emptyList())
         }
+    }
+
+    private val nativeVideoPicker = registerForActivityResult(
+        ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri == null) {
+            deliverNativePickerResult(cancelled = true, files = emptyList())
+            return@registerForActivityResult
+        }
+        encodeUrisOnBackground(listOf(uri), NativePickerCallback.VIDEO)
+    }
+
+    private val nativeFilePicker = registerForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri ->
+        if (uri == null) {
+            deliverNativePickerResult(cancelled = true, files = emptyList())
+            return@registerForActivityResult
+        }
+        encodeUrisOnBackground(listOf(uri), NativePickerCallback.FILE)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -125,6 +148,9 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
 
         permissionHelper = WebViewPermissionHelper(this)
         fileChooserHelper = WebViewFileChooserHelper(this)
+        locationHelper = NativeLocationHelper(this) { payload ->
+            deliverJsCallback("onNativeLocation", payload)
+        }
 
         setContentView(R.layout.activity_webview)
 
@@ -158,8 +184,8 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
 
     override fun openNativeImagePicker(multiple: Boolean) {
         Log.d(TAG, "Opening native photo picker chooser multiple=$multiple")
+        beginPicker(NativePickerCallback.IMAGE)
         pickerAllowsMultiple = multiple
-        pickerCancelledDelivered = false
         val options = buildList {
             if (packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
                 add(getString(R.string.picker_take_photo))
@@ -176,12 +202,36 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
                 }
             }
             .setNegativeButton(R.string.picker_cancel) { _, _ ->
-                deliverNativeImageResult(cancelled = true, files = emptyList())
+                deliverNativePickerResult(cancelled = true, files = emptyList())
             }
             .setOnCancelListener {
-                deliverNativeImageResult(cancelled = true, files = emptyList())
+                deliverNativePickerResult(cancelled = true, files = emptyList())
             }
             .show()
+    }
+
+    override fun openNativeVideoPicker() {
+        Log.d(TAG, "Opening native video picker")
+        beginPicker(NativePickerCallback.VIDEO)
+        nativeVideoPicker.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+        )
+    }
+
+    override fun openNativeFilePicker() {
+        Log.d(TAG, "Opening native document picker")
+        beginPicker(NativePickerCallback.FILE)
+        nativeFilePicker.launch("*/*")
+    }
+
+    override fun getNativeLocation(enableHighAccuracy: Boolean, timeoutMs: Long) {
+        Log.d(TAG, "Requesting native location highAccuracy=$enableHighAccuracy timeout=$timeoutMs")
+        locationHelper.request(enableHighAccuracy, timeoutMs)
+    }
+
+    private fun beginPicker(callback: NativePickerCallback) {
+        pendingPickerCallback = callback
+        pickerCancelledDelivered = false
     }
 
     private fun launchPhotoLibrary() {
@@ -219,18 +269,21 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         } catch (e: Exception) {
             Log.d(TAG, "Error launching camera", e)
             Toast.makeText(this, R.string.picker_camera_unavailable, Toast.LENGTH_SHORT).show()
-            deliverNativeImageResult(cancelled = true, files = emptyList())
+            deliverNativePickerResult(cancelled = true, files = emptyList())
         }
     }
 
-    private fun encodeUrisOnBackground(uris: List<Uri>) {
+    private fun encodeUrisOnBackground(
+        uris: List<Uri>,
+        callback: NativePickerCallback = pendingPickerCallback,
+    ) {
         Thread {
-            val files = uris.mapNotNull { encodeImageForWeb(it) }
+            val files = uris.mapNotNull { encodeUriForWeb(it, callback) }
             runOnUiThread {
                 if (files.isEmpty()) {
-                    deliverNativeImageResult(cancelled = true, files = emptyList())
+                    deliverNativePickerResult(cancelled = true, files = emptyList(), callback = callback)
                 } else {
-                    deliverNativeImageResult(cancelled = false, files = files)
+                    deliverNativePickerResult(cancelled = false, files = files, callback = callback)
                 }
             }
         }.start()
@@ -238,22 +291,23 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
 
     /**
      * Generic return for iOS and Android.
-     * Success: { cancelled: false, success: true, files: [{ mimeType, dataUrl }] }
+     * Success: { cancelled: false, success: true, files: [{ mimeType, fileName, dataUrl }] }
      * Cancel:  { cancelled: true, success: false, files: [] }
      */
-    private fun deliverNativeImageResult(
+    private fun deliverNativePickerResult(
         cancelled: Boolean,
-        files: List<NativePickedImage>
+        files: List<NativePickedFile>,
+        callback: NativePickerCallback = pendingPickerCallback,
     ) {
         if (!::webView.isInitialized) {
             return
         }
         val fileArray = JSONArray()
-        files.forEach { image ->
+        files.forEach { file ->
             fileArray.put(JSONObject().apply {
-                put("mimeType", image.mimeType)
-                put("fileName", image.fileName)
-                put("dataUrl", image.dataUrl)
+                put("mimeType", file.mimeType)
+                put("fileName", file.fileName)
+                put("dataUrl", file.dataUrl)
             })
         }
         val payload = JSONObject().apply {
@@ -267,8 +321,15 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         if (cancelled) {
             pickerCancelledDelivered = true
         }
-        val script = "window.onNativeImagePicked(${JSONObject.quote(payload.toString())})"
-        Log.d(TAG, "onNativeImagePicked cancelled=$cancelled count=${fileArray.length()}")
+        Log.d(TAG, "${callback.jsName} cancelled=$cancelled count=${fileArray.length()}")
+        deliverJsCallback(callback.jsName, payload)
+    }
+
+    private fun deliverJsCallback(functionName: String, payload: JSONObject) {
+        if (!::webView.isInitialized) {
+            return
+        }
+        val script = "window.$functionName && window.$functionName(${JSONObject.quote(payload.toString())})"
         webView.evaluateJavascript(script, null)
     }
 
@@ -277,7 +338,48 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
      * BitmapFactory.decodeStream and recompressing produced a smeared JPEG
      * that the upload API rejects. A normal file of the same picture succeeds.
      */
-    private fun encodeImageForWeb(uri: Uri): NativePickedImage? {
+    private fun encodeUriForWeb(uri: Uri, callback: NativePickerCallback): NativePickedFile? {
+        return when (callback) {
+            NativePickerCallback.IMAGE -> encodeImageForWeb(uri)
+            NativePickerCallback.VIDEO -> encodeBytesForWeb(uri, "native-video", "video/mp4")
+            NativePickerCallback.FILE -> encodeBytesForWeb(uri, "native-file", "application/octet-stream")
+        }
+    }
+
+    private fun encodeBytesForWeb(
+        uri: Uri,
+        fallbackName: String,
+        defaultMime: String,
+    ): NativePickedFile? {
+        return try {
+            val bytes = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
+            if (bytes.isEmpty() || bytes.size > MAX_BRIDGE_FILE_BYTES) {
+                Log.d(TAG, "Skipped native file emptyOrTooLarge size=${bytes.size}")
+                return null
+            }
+            val mimeType = reportedMime(contentResolver.getType(uri), defaultMime)
+            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            NativePickedFile(
+                mimeType = mimeType,
+                dataUrl = "data:$mimeType;base64,$base64",
+                fileName = displayName(uri) ?: "$fallbackName.${extensionFor(mimeType)}",
+            )
+        } catch (e: Exception) {
+            Log.d(TAG, "Error encoding picked file", e)
+            null
+        }
+    }
+
+    private fun reportedMime(reported: String?, fallback: String): String {
+        val normalized = reported?.substringBefore(';')?.lowercase()?.takeIf { it.isNotBlank() }
+        return when {
+            normalized == null -> fallback
+            normalized == "image/jpg" -> "image/jpeg"
+            else -> normalized
+        }
+    }
+
+    private fun encodeImageForWeb(uri: Uri): NativePickedFile? {
         return try {
             val original = contentResolver.openInputStream(uri)?.use { it.readBytes() } ?: return null
             if (original.isEmpty()) {
@@ -288,7 +390,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             val bytes = if (passThrough) original else recompressImage(original)
             val mimeType = if (bytes === original) sourceMime else "image/jpeg"
             val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
-            NativePickedImage(
+            NativePickedFile(
                 mimeType = mimeType,
                 dataUrl = "data:$mimeType;base64,$base64",
                 fileName = displayName(uri) ?: "native-photo.${extensionFor(mimeType)}",
@@ -358,7 +460,10 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             "image/png" -> "png"
             "image/webp" -> "webp"
             "image/gif" -> "gif"
-            else -> mimeType.substringAfter('/', "jpg").substringBefore('+')
+            "video/mp4" -> "mp4"
+            "application/pdf" -> "pdf"
+            "application/octet-stream" -> "bin"
+            else -> mimeType.substringAfter('/', "bin").substringBefore('+').ifBlank { "bin" }
         }
     }
 
@@ -426,6 +531,23 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         Log.d(TAG, "JS interface injected: ${BrowserBridge.INTERFACE_NAME}")
     }
 
+    /** PTX prefers window.callNative(type, data) and falls back to NativeApp.callback. */
+    private fun injectCallNative() {
+        val script = """
+            (function() {
+              if (window.callNative) { return; }
+              window.callNative = function(type, data) {
+                if (window.NativeApp && window.NativeApp.callback) {
+                  window.NativeApp.callback(JSON.stringify({ type: type, data: data }));
+                  return true;
+                }
+                return false;
+              };
+            })();
+        """.trimIndent()
+        webView.evaluateJavascript(script, null)
+    }
+
     private fun attachClients() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
@@ -451,6 +573,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             override fun onPageFinished(view: WebView?, url: String?) {
                 Log.d(TAG, "onPageFinished / Page loaded: $url")
                 progressBar.visibility = View.GONE
+                injectCallNative()
             }
 
             override fun onReceivedError(
@@ -542,6 +665,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     }
 
     override fun onDestroy() {
+        locationHelper.cancel()
         fileChooserHelper.cancel()
         webView.apply {
             loadUrl("about:blank")
@@ -554,8 +678,14 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     }
 }
 
-private data class NativePickedImage(
+private data class NativePickedFile(
     val mimeType: String,
     val dataUrl: String,
     val fileName: String,
 )
+
+private enum class NativePickerCallback(val jsName: String) {
+    IMAGE("onNativeImagePicked"),
+    VIDEO("onNativeVideoPicked"),
+    FILE("onNativeFilePicked"),
+}

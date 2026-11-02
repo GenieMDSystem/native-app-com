@@ -39,6 +39,7 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
         var parent: LegacyBridgeWebView
         weak var controller: LegacyWebViewController?
         private let imagePicker = NativeImagePicker()
+        private let location = NativeLocation()
 
         init(parent: LegacyBridgeWebView) {
             self.parent = parent
@@ -65,6 +66,30 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
                 return
             }
             imagePicker.present(from: webView, multiple: multiple)
+        }
+
+        func openNativeVideoPicker() {
+            guard let webView = controller?.webView else {
+                parent.onMessage("Video picker unavailable")
+                return
+            }
+            imagePicker.presentVideo(from: webView)
+        }
+
+        func openNativeFilePicker() {
+            guard let webView = controller?.webView else {
+                parent.onMessage("File picker unavailable")
+                return
+            }
+            imagePicker.presentFile(from: webView)
+        }
+
+        func getNativeLocation(enableHighAccuracy: Bool, timeoutMs: Int) {
+            guard let webView = controller?.webView else {
+                parent.onMessage("Location unavailable")
+                return
+            }
+            location.request(from: webView, enableHighAccuracy: enableHighAccuracy, timeoutMs: timeoutMs)
         }
 
         // MARK: - WKScriptMessageHandler

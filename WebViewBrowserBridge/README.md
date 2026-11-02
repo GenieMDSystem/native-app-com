@@ -30,7 +30,13 @@ These flags were added to the WebView URLs:
 
 All other query params (`patientLanguageID`, `patientOEMID`, `protocolName`, `dependent`, `fromWebView`, `ignoreLocationCheck`) are unchanged.
 
-`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Instead it must send bridge **type 4** and wait for `window.onNativeImagePicked(...)`. That avoids the iOS WKWebView freeze when Limited Photos access dismisses the system picker without firing `change` / `cancel`.
+`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Instead it must use the native picker bridge:
+
+- photos → type **4** → `window.onNativeImagePicked`
+- video → type **5** → `window.onNativeVideoPicked`
+- documents → type **6** → `window.onNativeFilePicked`
+
+That avoids the iOS WKWebView freeze when Limited Photos access dismisses the system picker without firing `change` / `cancel`.
 
 ### 1. Visit Doctor Now (Waiting Room)
 
@@ -170,7 +176,15 @@ Schedule Visit Now and Schedules List do not include `forWR`.
 
 `&openPickerInNative=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
 
-When this flag is present, the web page must use the native image-picker bridge (type 4) instead of a file input. Native shows **Take Photo** / **Photo Library**, then calls `window.onNativeImagePicked(jsonString)`.
+When this flag is present, the web page must use the native picker bridge instead of a file input:
+
+| Need | Send | Native calls |
+|------|------|----------------|
+| Photo | type `4` | `window.onNativeImagePicked` |
+| Video | type `5` | `window.onNativeVideoPicked` |
+| Document | type `6` | `window.onNativeFilePicked` |
+
+Types 4, 5, and 6 are separate events. Do not answer a video or document request on `onNativeImagePicked`.
 
 Schedules List does not use `openPickerInNative`.
 
@@ -195,15 +209,39 @@ An iOS host app lives at the repo root in `ios/WebBridge.xcodeproj`. It uses `fr
 
 ## WebView native bridge
 
-The WebView injects a JavaScript interface named **`NativeApp`**.
-
-Web pages call:
+The WebView injects a JavaScript interface named **`NativeApp`**. The web app may also call `window.callNative(type, data)`, which forwards to the same handler.
 
 ```javascript
 NativeApp.callback(JSON.stringify({ type: number, data: { ... } }));
+// or
+window.callNative(type, data);
 ```
 
-Native handler: `BrowserBridge.callback(json)` in `BrowserBridge.kt`.
+Native handler: `BrowserBridge.callback(json)` in `BrowserBridge.kt` (iOS: `BrowserBridge.handle` in `BrowserBridge.swift`).
+
+Must match PTX `bridge-action.constant.ts`.
+
+| type | Meaning | Web → native | Native → web |
+|------|---------|--------------|--------------|
+| 1 | Waiting room | `{ url, success, openInBrowser }` | — |
+| 2 | Close WebView | `{ success, close }` | — |
+| 3 | Open schedule link | `{ url, success, openInBrowser }` | — |
+| 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
+| **5** **(new)** | Video picker | `{ accept: "video/*", source: "photoLibrary", multiple: false }` | `window.onNativeVideoPicked` |
+| **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
+| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — |
+| **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
+
+Native picker and location callbacks always pass a **JSON string**, not an object:
+
+```javascript
+window.onNativeImagePicked(JSON.stringify({ ... }))
+window.onNativeVideoPicked(JSON.stringify({ ... }))
+window.onNativeFilePicked(JSON.stringify({ ... }))
+window.onNativeLocation(JSON.stringify({ ... }))
+```
+
+Register the matching `window.onNative*` handler **before** sending the type.
 
 ### Callback types
 
@@ -346,6 +384,156 @@ sendToNative(4, { accept: "image/*", multiple: false });
 
 Android and iOS use the same send/receive shape.
 
+#### Type `5` — Open native video picker **(new)**
+
+One video from the library. Native answers on `window.onNativeVideoPicked`, **not** `onNativeImagePicked`.
+
+**Web → native (send):**
+
+```json
+{
+  "type": 5,
+  "data": {
+    "accept": "video/*",
+    "source": "photoLibrary",
+    "multiple": false
+  }
+}
+```
+
+**Native → web (receive):**
+
+```javascript
+window.onNativeVideoPicked(jsonString)
+```
+
+Success:
+
+```json
+{
+  "cancelled": false,
+  "success": true,
+  "files": [
+    {
+      "mimeType": "video/mp4",
+      "fileName": "native-video.mp4",
+      "dataUrl": "data:video/mp4;base64,AAAA..."
+    }
+  ]
+}
+```
+
+Cancel / no file: `{ "cancelled": true, "success": false, "files": [] }`
+
+#### Type `6` — Open native document picker **(new)**
+
+One file of any type (medical records). Native answers on `window.onNativeFilePicked`.
+
+**Web → native (send):**
+
+```json
+{
+  "type": 6,
+  "data": {
+    "accept": "*/*",
+    "source": "files",
+    "multiple": false
+  }
+}
+```
+
+**Native → web (receive):**
+
+```javascript
+window.onNativeFilePicked(jsonString)
+```
+
+Success:
+
+```json
+{
+  "cancelled": false,
+  "success": true,
+  "files": [
+    {
+      "mimeType": "application/pdf",
+      "fileName": "record.pdf",
+      "dataUrl": "data:application/pdf;base64,JVBERi0..."
+    }
+  ]
+}
+```
+
+Cancel / no file: `{ "cancelled": true, "success": false, "files": [] }`
+
+#### Type `7` — Open a URL **(new)**
+
+Used by `openWindow` in the web app. Does **not** close the WebView (unlike types 1 and 3).
+
+**Web → native (send):**
+
+```json
+{
+  "type": 7,
+  "data": {
+    "url": "https://example.com",
+    "success": true,
+    "openInBrowser": true,
+    "target": "_blank"
+  }
+}
+```
+
+| Field | Behavior |
+|-------|----------|
+| `target: "_blank"` or `openInBrowser: true` | Open `url` in the system browser; keep the WebView open |
+| `target: "_self"` | Load `url` inside the same WebView |
+
+#### Type `8` — Current location **(new)**
+
+**Web → native (send):**
+
+```json
+{
+  "type": 8,
+  "data": {
+    "enableHighAccuracy": false,
+    "timeout": 30000
+  }
+}
+```
+
+**Native → web (receive):**
+
+```javascript
+window.onNativeLocation(jsonString)
+```
+
+Granted:
+
+```json
+{
+  "success": true,
+  "latitude": 37.77,
+  "longitude": -122.42
+}
+```
+
+Denied / unavailable / timeout (`code` matches `GeolocationPositionError`):
+
+```json
+{
+  "success": false,
+  "code": 1
+}
+```
+
+| `code` | Meaning |
+|--------|---------|
+| `1` | Permission denied |
+| `2` | Position unavailable |
+| `3` | Timed out |
+
 ### Why `@JavascriptInterface`?
 
 Only methods annotated with `@JavascriptInterface` are callable from JavaScript (API 17+). This limits exposure and avoids reflecting arbitrary native methods into the page.
@@ -373,13 +561,25 @@ sendToNative(1, {
 
 // Open native camera / photo library (type 4)
 sendToNative(4, { accept: "image/*", multiple: false });
+
+// Open native video library (type 5)
+sendToNative(5, { accept: "video/*", source: "photoLibrary", multiple: false });
+
+// Open native document picker (type 6)
+sendToNative(6, { accept: "*/*", source: "files", multiple: false });
+
+// Open a URL without closing the WebView (type 7)
+sendToNative(7, { url: "https://example.com", success: true, openInBrowser: true, target: "_blank" });
+
+// Current location (type 8)
+sendToNative(8, { enableHighAccuracy: false, timeout: 30000 });
 ```
 
 Always check `window.NativeApp` so the same page can run in a normal browser without crashing.
 
 ### Security notes
 
-- Only expose a narrow callback API (types 1–4).
+- Only expose a narrow callback API (types 1–8).
 - Validate URLs (`http` / `https` with a host) before opening.
 - Prefer loading trusted origins only.
 - Keep ProGuard rules for `@JavascriptInterface` methods if minify is enabled.
@@ -406,8 +606,9 @@ Launcher → Setup (first time) → Login → Home (3 buttons) → WebView
 | File | Purpose |
 |------|---------|
 | `AppDestinations.kt` | Constructs the three WebView URLs |
-| `BrowserBridge.kt` | Native bridge (`NativeApp.callback`) |
-| `WebViewActivity.kt` | Full-screen WebView host + native camera / photo library |
+| `BrowserBridge.kt` | Native bridge (`NativeApp.callback`) types 1–8 |
+| `WebViewActivity.kt` | Full-screen WebView host + native camera / photo / video / file pickers |
+| `NativeLocationHelper.kt` | Type 8 location (`window.onNativeLocation`) |
 | `MainActivity.kt` | Home buttons that open each URL |
 | `data/AppPreferences.kt` | Cached config + session |
 | `network/GenieMdApi.kt` | Login + profile APIs |
