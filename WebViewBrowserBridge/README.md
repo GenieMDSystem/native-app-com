@@ -18,7 +18,8 @@ Values come from:
 | Source | Fields |
 |--------|--------|
 | Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` · `environmentUrl` = `https://{subdomain}.geniemd.net/{folder}` |
-| Profile (after login) | `clinicID`, `userID`, `languageId`, `oemID` |
+| Profile (after login) | `clinicID` (master clinic), `userID`, `languageId`, `oemID` |
+| Multi-clinic (when used) | selected `{clinicID}` in the path; profile `clinicID` goes to `masterClinic` |
 
 Setup defaults: `subdomain=dev`, `folder=zoom`.
 
@@ -46,6 +47,34 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
 
 `protocolName` is **not** added.
 
+**`{clinicID}` in the path**
+
+- Single clinic: `{clinicID}` is the profile `clinicID`.
+- Multi-clinic: `{clinicID}` is the **selected** clinic id (not the profile clinic).
+
+### Multi-clinic
+
+When the user is in a multi-clinic setup, also send:
+
+| Param | Value |
+|-------|--------|
+| `multiClinic` | `true` |
+| `masterClinic` | profile `clinicID` (same value that used to go in the path `{clinicID}`) |
+
+Path `{clinicID}` = selected clinic id.
+
+```
+https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{selectedClinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &fromWebView=android
+  &openPickerInNative=true
+  &multiClinic=true
+  &masterClinic={profileClinicID}
+```
+
+Do **not** add `multiClinic` / `masterClinic` for a single-clinic user.
+
 Optional checkboxes on the home screen (appended only when selected):
 
 | Checkbox | Appended when checked |
@@ -67,6 +96,11 @@ https://dev.geniemd.net/zoom/assessment/#/protocol/1000254/consent/0b4a…?patie
 **Optional flags checked:**
 ```
 https://dev.geniemd.net/zoom/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&dependent=true&ignoreLocationCheck=true
+```
+
+**Multi-clinic** (selected clinic `2000100`, profile/master clinic `1000254`):
+```
+https://dev.geniemd.net/zoom/assessment/#/protocol/2000100/consent/0b4a…?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&multiClinic=true&masterClinic=1000254
 ```
 
 ---
