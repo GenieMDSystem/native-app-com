@@ -44,6 +44,9 @@
     <string name="picker_photo_library">Photo Library</string>
     <string name="picker_cancel">Cancel</string>
     <string name="picker_camera_unavailable">Camera is not available</string>
-    <string name="picker_video_title">Choose a video</string>
+    <string name="picker_video_title">Upload a video</string>
+    <string name="picker_record_video">Record Video</string>
+    <string name="picker_video_library">Video Library</string>
+    <string name="picker_choose_file">Choose File</string>
     <string name="picker_file_title">Choose a file</string>
 </resources>

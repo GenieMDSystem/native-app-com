@@ -255,9 +255,9 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = WebBridge;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for telehealth visits and uploading photos in WebView flows.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for telehealth visits and uploading photos or videos in WebView flows.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location may be used by care flows loaded in the WebView.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is used for telehealth audio during visits.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is used for telehealth audio and recording videos in WebView flows.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is used when attaching images from WebView forms.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
@@ -302,9 +302,9 @@
 				ENABLE_USER_SELECTED_FILES = readonly;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = WebBridge;
-				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for telehealth visits and uploading photos in WebView flows.";
+				INFOPLIST_KEY_NSCameraUsageDescription = "Camera access is used for telehealth visits and uploading photos or videos in WebView flows.";
 				INFOPLIST_KEY_NSLocationWhenInUseUsageDescription = "Location may be used by care flows loaded in the WebView.";
-				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is used for telehealth audio during visits.";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Microphone access is used for telehealth audio and recording videos in WebView flows.";
 				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "Photo library access is used when attaching images from WebView forms.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;

@@ -87,7 +87,7 @@ Must match PTX `bridge-action.constant.ts`.
 | 2 | Close WebView | `{ success, close }` | — |
 | 3 | Open schedule link | `{ url, success, openInBrowser }` | — (same as type 1) |
 | 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
-| **5** **(new)** | Video picker | `{ accept: "video/*", source: "photoLibrary", multiple: false }` | `window.onNativeVideoPicked` |
+| **5** **(new)** | Video picker | `{ accept: "video/*", source, multiple: false }` | `window.onNativeVideoPicked` (Record Video / Video Library / Choose File) |
 | **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
 | **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — (`_blank` = Safari, `_self` = same WebView; does **not** close) |
 | **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
@@ -133,10 +133,12 @@ Cancel: `{ "cancelled": true, "success": false, "files": [] }`
 
 ### Type 5 — Video **(new)**
 
+Native presents a chooser: **Record Video**, **Video Library**, or **Choose File**.
+
 **Send:**
 
 ```json
-{ "type": 5, "data": { "accept": "video/*", "source": "photoLibrary", "multiple": false } }
+{ "type": 5, "data": { "accept": "video/*", "source": "camera-or-library", "multiple": false } }
 ```
 
 **Receive** (`window.onNativeVideoPicked`):

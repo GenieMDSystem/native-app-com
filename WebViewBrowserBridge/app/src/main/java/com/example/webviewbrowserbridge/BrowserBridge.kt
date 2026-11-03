@@ -287,7 +287,7 @@ class BrowserBridge(
         BridgeAction.SCHEDULE -> "Schedule"
         BridgeAction.OPEN_SCHEDULE_LINK -> "Schedule link"
         BridgeAction.OPEN_NATIVE_IMAGE_PICKER -> "Photo library"
-        BridgeAction.OPEN_NATIVE_VIDEO_PICKER -> "Video library"
+        BridgeAction.OPEN_NATIVE_VIDEO_PICKER -> "Video picker"
         BridgeAction.OPEN_NATIVE_FILE_PICKER -> "File picker"
         BridgeAction.OPEN_EXTERNAL_LINK -> "Open link"
         BridgeAction.GET_NATIVE_LOCATION -> "Location"

@@ -253,7 +253,7 @@ enum BrowserBridge {
         case .schedule: return "Schedule"
         case .openScheduleLink: return "Schedule link"
         case .openNativeImagePicker: return "Photo library"
-        case .openNativeVideoPicker: return "Video library"
+        case .openNativeVideoPicker: return "Video picker"
         case .openNativeFilePicker: return "File picker"
         case .openExternalLink: return "Open link"
         case .getNativeLocation: return "Location"

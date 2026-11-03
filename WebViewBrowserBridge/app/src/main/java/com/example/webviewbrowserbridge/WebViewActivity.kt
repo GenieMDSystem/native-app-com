@@ -80,6 +80,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     private lateinit var fileChooserHelper: WebViewFileChooserHelper
     private lateinit var locationHelper: NativeLocationHelper
     private var cameraPhotoUri: Uri? = null
+    private var cameraVideoUri: Uri? = null
     private var pickerCancelledDelivered = false
     private var pendingPickerCallback = NativePickerCallback.IMAGE
 
@@ -130,6 +131,33 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         }
     }
 
+    private val videoCapturePermissions = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) {
+        val cameraGranted = ContextCompat.checkSelfPermission(
+            this,
+            android.Manifest.permission.CAMERA
+        ) == PackageManager.PERMISSION_GRANTED
+        if (cameraGranted) {
+            launchVideoCapture()
+        } else {
+            Toast.makeText(this, R.string.picker_camera_unavailable, Toast.LENGTH_SHORT).show()
+            deliverNativePickerResult(cancelled = true, files = emptyList())
+        }
+    }
+
+    private val captureVideo = registerForActivityResult(
+        ActivityResultContracts.CaptureVideo()
+    ) { success ->
+        val uri = cameraVideoUri
+        cameraVideoUri = null
+        if (!success || uri == null) {
+            deliverNativePickerResult(cancelled = true, files = emptyList())
+            return@registerForActivityResult
+        }
+        encodeUrisOnBackground(listOf(uri), NativePickerCallback.VIDEO)
+    }
+
     private val nativeVideoPicker = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri ->
@@ -147,7 +175,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             deliverNativePickerResult(cancelled = true, files = emptyList())
             return@registerForActivityResult
         }
-        encodeUrisOnBackground(listOf(uri), NativePickerCallback.FILE)
+        encodeUrisOnBackground(listOf(uri), pendingPickerCallback)
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -221,11 +249,32 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     }
 
     override fun openNativeVideoPicker() {
-        Log.d(TAG, "Opening native video picker")
+        Log.d(TAG, "Opening native video picker chooser")
         beginPicker(NativePickerCallback.VIDEO)
-        nativeVideoPicker.launch(
-            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
-        )
+        val options = buildList {
+            if (packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA_ANY)) {
+                add(getString(R.string.picker_record_video))
+            }
+            add(getString(R.string.picker_video_library))
+            add(getString(R.string.picker_choose_file))
+        }.toTypedArray()
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.picker_video_title)
+            .setItems(options) { _, which ->
+                when (options[which]) {
+                    getString(R.string.picker_record_video) -> requestCameraThenRecord()
+                    getString(R.string.picker_choose_file) -> nativeFilePicker.launch("video/*")
+                    else -> launchVideoLibrary()
+                }
+            }
+            .setNegativeButton(R.string.picker_cancel) { _, _ ->
+                deliverNativePickerResult(cancelled = true, files = emptyList())
+            }
+            .setOnCancelListener {
+                deliverNativePickerResult(cancelled = true, files = emptyList())
+            }
+            .show()
     }
 
     override fun openNativeFilePicker() {
@@ -253,6 +302,12 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         }
     }
 
+    private fun launchVideoLibrary() {
+        nativeVideoPicker.launch(
+            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.VideoOnly)
+        )
+    }
+
     private fun requestCameraThenCapture() {
         val granted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) ==
             PackageManager.PERMISSION_GRANTED
@@ -278,6 +333,42 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             takePicture.launch(outputUri)
         } catch (e: Exception) {
             Log.d(TAG, "Error launching camera", e)
+            Toast.makeText(this, R.string.picker_camera_unavailable, Toast.LENGTH_SHORT).show()
+            deliverNativePickerResult(cancelled = true, files = emptyList())
+        }
+    }
+
+    private fun requestCameraThenRecord() {
+        val cameraGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA) ==
+            PackageManager.PERMISSION_GRANTED
+        val micGranted = ContextCompat.checkSelfPermission(this, android.Manifest.permission.RECORD_AUDIO) ==
+            PackageManager.PERMISSION_GRANTED
+        if (cameraGranted && micGranted) {
+            launchVideoCapture()
+            return
+        }
+        val needed = buildList {
+            if (!cameraGranted) add(android.Manifest.permission.CAMERA)
+            if (!micGranted) add(android.Manifest.permission.RECORD_AUDIO)
+        }.toTypedArray()
+        videoCapturePermissions.launch(needed)
+    }
+
+    private fun launchVideoCapture() {
+        try {
+            val videoFile = File(
+                File(cacheDir, "videos").apply { mkdirs() },
+                "CAMERA_${SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())}.mp4"
+            )
+            val outputUri = FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                videoFile
+            )
+            cameraVideoUri = outputUri
+            captureVideo.launch(outputUri)
+        } catch (e: Exception) {
+            Log.d(TAG, "Error launching video camera", e)
             Toast.makeText(this, R.string.picker_camera_unavailable, Toast.LENGTH_SHORT).show()
             deliverNativePickerResult(cancelled = true, files = emptyList())
         }

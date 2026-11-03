@@ -200,7 +200,7 @@ Must match PTX `bridge-action.constant.ts`.
 | 2 | Close WebView | `{ success, close }` | — |
 | 3 | Open schedule link | `{ url, success, openInBrowser }` | — |
 | 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
-| **5** **(new)** | Video picker | `{ accept: "video/*", source: "photoLibrary", multiple: false }` | `window.onNativeVideoPicked` |
+| **5** **(new)** | Video picker | `{ accept: "video/*", source, multiple: false }` | `window.onNativeVideoPicked` |
 | **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
 | **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — |
 | **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
@@ -359,7 +359,7 @@ Android and iOS use the same send/receive shape.
 
 #### Type `5` — Open native video picker **(new)**
 
-One video from the library. Native answers on `window.onNativeVideoPicked`, **not** `onNativeImagePicked`.
+Native presents a chooser: **Record Video** (camera), **Video Library**, or **Choose File**. One file is returned on `window.onNativeVideoPicked`, **not** `onNativeImagePicked`.
 
 **Web → native (send):**
 
@@ -368,11 +368,13 @@ One video from the library. Native answers on `window.onNativeVideoPicked`, **no
   "type": 5,
   "data": {
     "accept": "video/*",
-    "source": "photoLibrary",
+    "source": "camera-or-library",
     "multiple": false
   }
 }
 ```
+
+`source` is logged only. Native always shows **Record Video**, **Video Library**, and **Choose File**.
 
 **Native → web (receive):**
 
@@ -535,8 +537,8 @@ sendToNative(1, {
 // Open native camera / photo library (type 4)
 sendToNative(4, { accept: "image/*", multiple: false });
 
-// Open native video library (type 5)
-sendToNative(5, { accept: "video/*", source: "photoLibrary", multiple: false });
+// Open native video camera / library / file (type 5)
+sendToNative(5, { accept: "video/*", source: "camera-or-library", multiple: false });
 
 // Open native document picker (type 6)
 sendToNative(6, { accept: "*/*", source: "files", multiple: false });

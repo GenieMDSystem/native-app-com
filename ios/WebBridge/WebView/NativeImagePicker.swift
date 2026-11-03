@@ -83,12 +83,33 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
             deliver(cancelled: true, files: [])
             return
         }
-        var config = PHPickerConfiguration()
-        config.filter = .videos
-        config.selectionLimit = 1
-        let picker = PHPickerViewController(configuration: config)
-        picker.delegate = self
-        presenter.present(picker, animated: true)
+
+        let sheet = UIAlertController(title: "Upload a video", message: nil, preferredStyle: .actionSheet)
+        if UIImagePickerController.isSourceTypeAvailable(.camera) {
+            sheet.addAction(UIAlertAction(title: "Record Video", style: .default) { [weak self] _ in
+                self?.requestCameraThenRecord(from: presenter)
+            })
+        }
+        sheet.addAction(UIAlertAction(title: "Video Library", style: .default) { [weak self] _ in
+            self?.presentVideoLibrary(from: presenter)
+        })
+        sheet.addAction(UIAlertAction(title: "Choose File", style: .default) { [weak self] _ in
+            self?.presentVideoFile(from: presenter)
+        })
+        sheet.addAction(UIAlertAction(title: "Cancel", style: .cancel) { [weak self] _ in
+            self?.deliver(cancelled: true, files: [])
+        })
+
+        if let pop = sheet.popoverPresentationController {
+            pop.sourceView = presenter.view
+            pop.sourceRect = CGRect(
+                x: presenter.view.bounds.midX,
+                y: presenter.view.bounds.maxY - 40,
+                width: 1,
+                height: 1
+            )
+        }
+        presenter.present(sheet, animated: true)
     }
 
     func presentFile(from webView: WKWebView) {
@@ -120,6 +141,25 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
         picker.delegate = self
         presenter.present(picker, animated: true)
     }
+
+    private func presentVideoLibrary(from presenter: UIViewController) {
+        var config = PHPickerConfiguration()
+        config.filter = .videos
+        config.selectionLimit = 1
+        let picker = PHPickerViewController(configuration: config)
+        picker.delegate = self
+        presenter.present(picker, animated: true)
+    }
+
+    private func presentVideoFile(from presenter: UIViewController) {
+        let picker = UIDocumentPickerViewController(
+            forOpeningContentTypes: [.movie],
+            asCopy: true
+        )
+        picker.delegate = self
+        picker.allowsMultipleSelection = false
+        presenter.present(picker, animated: true)
+    }
  
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true) { [weak self] in
@@ -141,6 +181,8 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
             deliver(cancelled: true, files: [])
             return
         }
+        let fallbackName = kind == .video ? "native-video" : "native-file"
+        let defaultMime = kind == .video ? "video/mp4" : "application/octet-stream"
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             let accessed = url.startAccessingSecurityScopedResource()
             defer {
@@ -150,8 +192,8 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
             }
             let file = NativeImagePicker.encodeRawFile(
                 url: url,
-                fallbackName: "native-file",
-                defaultMime: "application/octet-stream"
+                fallbackName: fallbackName,
+                defaultMime: defaultMime
             )
             DispatchQueue.main.async {
                 if let file {
@@ -238,6 +280,53 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
         picker.allowsEditing = false
         presenter.present(picker, animated: true)
     }
+
+    private func requestCameraThenRecord(from presenter: UIViewController) {
+        requestMediaAccess(.video) { [weak self] cameraGranted in
+            guard let self else { return }
+            guard cameraGranted else {
+                self.deliver(cancelled: true, files: [])
+                return
+            }
+            self.requestMediaAccess(.audio) { [weak self] _ in
+                self?.presentVideoCamera(from: presenter)
+            }
+        }
+    }
+
+    private func requestMediaAccess(_ media: AVMediaType, completion: @escaping (Bool) -> Void) {
+        switch AVCaptureDevice.authorizationStatus(for: media) {
+        case .authorized:
+            completion(true)
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: media) { granted in
+                DispatchQueue.main.async { completion(granted) }
+            }
+        default:
+            completion(false)
+        }
+    }
+
+    private func presentVideoCamera(from presenter: UIViewController) {
+        guard UIImagePickerController.isSourceTypeAvailable(.camera) else {
+            deliver(cancelled: true, files: [])
+            return
+        }
+        let movieType = UTType.movie.identifier
+        let available = UIImagePickerController.availableMediaTypes(for: .camera) ?? []
+        guard available.contains(movieType) else {
+            deliver(cancelled: true, files: [])
+            return
+        }
+        let picker = UIImagePickerController()
+        picker.sourceType = .camera
+        picker.mediaTypes = [movieType]
+        picker.cameraCaptureMode = .video
+        picker.videoQuality = .typeMedium
+        picker.delegate = self
+        picker.allowsEditing = false
+        presenter.present(picker, animated: true)
+    }
  
     func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true) { [weak self] in
@@ -249,12 +338,35 @@ final class NativeImagePicker: NSObject, PHPickerViewControllerDelegate, UIImage
         _ picker: UIImagePickerController,
         didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]
     ) {
+        let mediaURL = info[.mediaURL] as? URL
         let image = info[.originalImage] as? UIImage
         picker.dismiss(animated: true) { [weak self] in
+            guard let self else { return }
+            if self.kind == .video {
+                guard let mediaURL else {
+                    self.deliver(cancelled: true, files: [])
+                    return
+                }
+                DispatchQueue.global(qos: .userInitiated).async {
+                    let file = NativeImagePicker.encodeRawFile(
+                        url: mediaURL,
+                        fallbackName: "native-video",
+                        defaultMime: "video/mp4"
+                    )
+                    DispatchQueue.main.async {
+                        if let file {
+                            self.deliver(cancelled: false, files: [file])
+                        } else {
+                            self.deliver(cancelled: true, files: [])
+                        }
+                    }
+                }
+                return
+            }
             if let image, let file = NativeImagePicker.encodeJPEG(image, fileName: "native-photo.jpg") {
-                self?.deliver(cancelled: false, files: [file])
+                self.deliver(cancelled: false, files: [file])
             } else {
-                self?.deliver(cancelled: true, files: [])
+                self.deliver(cancelled: true, files: [])
             }
         }
     }
