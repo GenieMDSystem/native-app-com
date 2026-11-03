@@ -26,7 +26,7 @@ Setup defaults: `subdomain=dev`, `folder=zoom`.
 
 Home UI is **Visit Doctor** plus **Logout**. Optional query flags are toggles.
 
-Home also has **Shrink viewport when keyboard opens** (default on, not a URL param). When on, WKWebView height shrinks with the keyboard so the page layout viewport sits above it. When off, the keyboard overlays the WebView.
+Home also has **Shrink viewport when keyboard opens** (not a URL param). It is **not required** and defaults **off**: when the keyboard opens, the WebView does **not** shrink (keyboard overlays the page). Check the box only if you want WKWebView height to shrink so the layout viewport sits above the keyboard.
 
 Always included (`protocolName` is **not** added):
 
@@ -73,6 +73,8 @@ Optional checkboxes (appended only when selected):
 
 `openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Use native types 4 / 5 / 6 instead.
 
+Keyboard shrink is **not** mandatory. Leave **Shrink viewport when keyboard opens** unchecked (default) so the keyboard overlays the WebView.
+
 ---
 
 ## Native bridge (types 1–8)
@@ -89,7 +91,7 @@ Must match PTX `bridge-action.constant.ts`.
 | 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
 | **5** **(new)** | Video picker | `{ accept: "video/*", source, multiple: false }` | `window.onNativeVideoPicked` (Record Video / Video Library / Choose File) |
 | **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
-| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — (`_blank` = Safari, `_self` = same WebView; does **not** close) |
+| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — http(s): `_blank` = Safari, `_self` = same WebView. `tel:` / `mailto:` / `sms:` = system apps. Does **not** close. |
 | **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
 
 Types 4, 5, and 6 are separate. Do not answer a video or document request on `onNativeImagePicked`.
@@ -133,7 +135,15 @@ Cancel: `{ "cancelled": true, "success": false, "files": [] }`
 
 ### Type 5 — Video **(new)**
 
-Native presents a chooser: **Record Video**, **Video Library**, or **Choose File**.
+Native presents a chooser (same idea as type 4 photos). One file is returned on `window.onNativeVideoPicked`.
+
+| Chooser option | Source |
+|----------------|--------|
+| **Record Video** | Device camera (camera + microphone permission) |
+| **Video Library** | Photos picker, videos only |
+| **Choose File** | Files picker, video types |
+
+Cancel on the sheet, camera, library, or file picker returns a cancelled payload. `accept` / `source` / `multiple` are logged only; video always returns one file.
 
 **Send:**
 
@@ -185,12 +195,36 @@ Native presents a chooser: **Record Video**, **Video Library**, or **Choose File
 
 Does **not** close the WebView.
 
+**http(s):**
+
 ```json
 { "type": 7, "data": { "url": "https://example.com", "success": true, "openInBrowser": true, "target": "_blank" } }
 ```
 
 - `target: "_blank"` or `openInBrowser: true` → open in Safari
 - `target: "_self"` → load inside the same WebView
+
+**`tel:` / `mailto:` / `sms:` (Call 911, mail, SMS):**
+
+```json
+{ "type": 7, "data": { "url": "tel:911", "success": true } }
+```
+
+```json
+{ "type": 7, "data": { "url": "mailto:support@example.com", "success": true } }
+```
+
+```json
+{ "type": 7, "data": { "url": "sms:+15555550100", "success": true } }
+```
+
+| Scheme | Opens |
+|--------|--------|
+| `tel:` | System Phone / dialer (never load in WKWebView) |
+| `mailto:` | System Mail |
+| `sms:` | System Messages |
+
+Same schemes also work on types **1** and **3**. If the page uses `<a href="tel:…">` (or mailto/sms), native intercepts navigation and opens the system app. App-scheme URLs leave the WebView open.
 
 ### Type 8 — Location **(new)**
 

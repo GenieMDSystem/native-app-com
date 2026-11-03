@@ -96,7 +96,7 @@ class AppPreferences(context: Context) {
             .apply()
     }
 
-    fun isShrinkViewportOnKeyboard(): Boolean = prefs.getBoolean(KEY_SHRINK_VIEWPORT, true)
+    fun isShrinkViewportOnKeyboard(): Boolean = prefs.getBoolean(KEY_SHRINK_VIEWPORT, false)
 
     fun setShrinkViewportOnKeyboard(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_SHRINK_VIEWPORT, enabled).apply()

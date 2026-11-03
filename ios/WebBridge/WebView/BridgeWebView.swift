@@ -4,7 +4,7 @@ import WebKit
 
 struct BridgeWebView: UIViewRepresentable {
     let url: URL
-    var shrinkViewportOnKeyboard: Bool = true
+    var shrinkViewportOnKeyboard: Bool = false
     var onClose: () -> Void
     var onMessage: (String) -> Void
 

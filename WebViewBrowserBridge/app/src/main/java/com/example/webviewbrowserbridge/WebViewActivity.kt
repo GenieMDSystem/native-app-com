@@ -66,7 +66,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         fun createIntent(
             context: Context,
             url: String,
-            shrinkViewport: Boolean = true,
+            shrinkViewport: Boolean = false,
         ): Intent {
             return Intent(context, WebViewActivity::class.java).apply {
                 putExtra(EXTRA_URL, url)
@@ -86,7 +86,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     private var pendingPickerCallback = NativePickerCallback.IMAGE
 
     private var pickerAllowsMultiple = false
-    private var shrinkViewportOnKeyboard = true
+    private var shrinkViewportOnKeyboard = false
 
     /** Same callback iOS should use: window.onNativeImagePicked(jsonString). */
     private val nativeImagePickerSingle = registerForActivityResult(
@@ -189,7 +189,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             deliverJsCallback("onNativeLocation", payload)
         }
 
-        shrinkViewportOnKeyboard = intent.getBooleanExtra(EXTRA_SHRINK_VIEWPORT, true)
+        shrinkViewportOnKeyboard = intent.getBooleanExtra(EXTRA_SHRINK_VIEWPORT, false)
         applySoftInputMode()
         setContentView(R.layout.activity_webview)
 

@@ -84,11 +84,11 @@ Optional checkboxes on the home screen (appended only when selected):
 
 `disableCamera` and `forWR` are hidden for now and are **not** added to the URL.
 
-Home also has a **WebView options** checkbox (not a URL param):
+Home also has a **WebView options** checkbox (not a URL param). It is **not required**. Keyboard open does **not** shrink the WebView unless this box is checked:
 
-| Checkbox | Default | When checked | When unchecked |
-|----------|---------|--------------|----------------|
-| Shrink viewport when keyboard opens | on | WebView height shrinks with the IME so the page `innerHeight` / layout viewport sits above the keyboard | Keyboard overlays the WebView |
+| Checkbox | Default | When unchecked (normal) | When checked |
+|----------|---------|-------------------------|--------------|
+| Shrink viewport when keyboard opens | **off** | Keyboard overlays the WebView; page height stays the same | WebView height shrinks with the IME so `innerHeight` / layout viewport sits above the keyboard |
 
 The flag is cached and passed into `WebViewActivity`.
 
@@ -200,9 +200,9 @@ Must match PTX `bridge-action.constant.ts`.
 | 2 | Close WebView | `{ success, close }` | — |
 | 3 | Open schedule link | `{ url, success, openInBrowser }` | — |
 | 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
-| **5** **(new)** | Video picker | `{ accept: "video/*", source, multiple: false }` | `window.onNativeVideoPicked` |
+| **5** **(new)** | Video picker | `{ accept: "video/*", source, multiple: false }` | `window.onNativeVideoPicked` (Record Video / Video Library / Choose File) |
 | **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
-| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — |
+| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — http(s): browser or same WebView. `tel:` / `mailto:` / `sms:`: system apps. Does **not** close. |
 | **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
 
 Native picker and location callbacks always pass a **JSON string**, not an object:
@@ -359,7 +359,15 @@ Android and iOS use the same send/receive shape.
 
 #### Type `5` — Open native video picker **(new)**
 
-Native presents a chooser: **Record Video** (camera), **Video Library**, or **Choose File**. One file is returned on `window.onNativeVideoPicked`, **not** `onNativeImagePicked`.
+Native presents a chooser (same idea as type 4 photos). One file is returned on `window.onNativeVideoPicked`, **not** `onNativeImagePicked`.
+
+| Chooser option | Source |
+|----------------|--------|
+| **Record Video** | Device camera (requests camera + microphone) |
+| **Video Library** | System gallery / photo picker, videos only |
+| **Choose File** | Document picker, video files |
+
+Cancel on the sheet, camera, library, or file picker returns a cancelled payload.
 
 **Web → native (send):**
 
@@ -374,7 +382,11 @@ Native presents a chooser: **Record Video** (camera), **Video Library**, or **Ch
 }
 ```
 
-`source` is logged only. Native always shows **Record Video**, **Video Library**, and **Choose File**.
+| Field | Required | Behavior |
+|-------|----------|----------|
+| `accept` | no | Logged only; native always picks video |
+| `source` | no | Logged only; native always shows **Record Video**, **Video Library**, and **Choose File** |
+| `multiple` | no | Ignored; video always returns one file |
 
 **Native → web (receive):**
 
@@ -445,7 +457,7 @@ Cancel / no file: `{ "cancelled": true, "success": false, "files": [] }`
 
 Used by `openWindow` in the web app. Does **not** close the WebView (unlike types 1 and 3).
 
-**Web → native (send):**
+**Web → native (send) — http(s):**
 
 ```json
 {
@@ -459,11 +471,31 @@ Used by `openWindow` in the web app. Does **not** close the WebView (unlike type
 }
 ```
 
-| Field | Behavior |
-|-------|----------|
-| `target: "_blank"` or `openInBrowser: true` | Open `url` in the system browser; keep the WebView open |
-| `target: "_self"` | Load `url` inside the same WebView |
-| `url` starts with `tel:`, `mailto:`, or `sms:` | Open the system dialer / mail / SMS app (never load in WebView). Used by Call 911. |
+**Web → native (send) — Call 911 / phone / mail / SMS:**
+
+```json
+{ "type": 7, "data": { "url": "tel:911", "success": true } }
+```
+
+```json
+{ "type": 7, "data": { "url": "mailto:support@example.com", "success": true } }
+```
+
+```json
+{ "type": 7, "data": { "url": "sms:+15555550100", "success": true } }
+```
+
+| Field / URL | Behavior |
+|-------------|----------|
+| `target: "_blank"` or `openInBrowser: true` | Open http(s) `url` in the system browser; keep the WebView open |
+| `target: "_self"` | Load http(s) `url` inside the same WebView |
+| `url` starts with `tel:` | Open the system **dialer** (never load in WebView). Used by Call 911. |
+| `url` starts with `mailto:` | Open the system **mail** app (never load in WebView) |
+| `url` starts with `sms:` | Open the system **SMS** app (never load in WebView) |
+
+`tel:` / `mailto:` / `sms:` also work on types **1** and **3**. Same schemes are intercepted if the page navigates with `<a href="tel:…">` (or mailto/sms) so the WebView never tries to load them as a page.
+
+Types 1 and 3 still close the WebView after opening a **browser** http(s) URL. App-scheme URLs (`tel` / `mailto` / `sms`) open the system app and **leave the WebView open**.
 
 #### Type `8` — Current location **(new)**
 
@@ -541,6 +573,11 @@ sendToNative(4, { accept: "image/*", multiple: false });
 // Open native video camera / library / file (type 5)
 sendToNative(5, { accept: "video/*", source: "camera-or-library", multiple: false });
 
+// Call 911 / phone / mail / SMS (type 7) — opens dialer, never loads in WebView
+sendToNative(7, { url: "tel:911", success: true });
+sendToNative(7, { url: "mailto:support@example.com", success: true });
+sendToNative(7, { url: "sms:+15555550100", success: true });
+
 // Open native document picker (type 6)
 sendToNative(6, { accept: "*/*", source: "files", multiple: false });
 
@@ -556,7 +593,7 @@ Always check `window.NativeApp` so the same page can run in a normal browser wit
 ### Security notes
 
 - Only expose a narrow callback API (types 1–8).
-- Validate URLs (`http` / `https` with a host) before opening.
+- Validate `http` / `https` URLs before opening. `tel:` / `mailto:` / `sms:` open system apps and are never loaded in the WebView.
 - Prefer loading trusted origins only.
 - Keep ProGuard rules for `@JavascriptInterface` methods if minify is enabled.
 
@@ -572,7 +609,7 @@ Launcher → Setup (first time) → Login → Home (Visit Doctor + Logout) → W
 
 - **Setup:** subdomain + folder (defaults `dev` / `zoom`), saved in SharedPreferences  
 - **Login:** ValidateLogin → Profile → stores `userID`, `clinicID`, `languageId`, `oemID`  
-- **Home:** Visit Doctor + Logout; optional query checkboxes; opens `WebViewActivity`  
+- **Home:** Visit Doctor + Logout; optional query checkboxes; optional shrink-viewport checkbox (default off); opens `WebViewActivity`  
 - **Logout:** clears session only; config remains
 
 ---

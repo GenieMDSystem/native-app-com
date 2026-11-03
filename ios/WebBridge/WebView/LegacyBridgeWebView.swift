@@ -11,7 +11,7 @@ import WebKit
 /// (`UIWebView` itself is removed from modern iOS SDKs, so this is the realistic "old WebView" stack.)
 struct LegacyBridgeWebView: UIViewControllerRepresentable {
     let url: URL
-    var shrinkViewportOnKeyboard: Bool = true
+    var shrinkViewportOnKeyboard: Bool = false
     var onClose: () -> Void
     var onMessage: (String) -> Void
 
@@ -251,7 +251,7 @@ final class LegacyWebViewController: UIViewController {
     private let keyboardShrinkper = KeyboardViewportShrinkper()
     private var webViewBottomConstraint: NSLayoutConstraint?
 
-    var shrinkViewportOnKeyboard = true {
+    var shrinkViewportOnKeyboard = false {
         didSet { keyboardShrinkper.isEnabled = shrinkViewportOnKeyboard }
     }
 

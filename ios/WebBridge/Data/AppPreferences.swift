@@ -117,12 +117,9 @@ final class AppPreferences {
         }
     }
 
-    /// Default true: WebView height shrinks with the keyboard.
+    /// Default false: keyboard overlays the WebView. Opt in from Home to shrink.
     var shrinkViewportOnKeyboard: Bool {
-        get {
-            if defaults.object(forKey: Key.shrinkViewport) == nil { return true }
-            return defaults.bool(forKey: Key.shrinkViewport)
-        }
+        get { defaults.bool(forKey: Key.shrinkViewport) }
         set { defaults.set(newValue, forKey: Key.shrinkViewport) }
     }
 
