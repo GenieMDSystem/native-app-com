@@ -19,6 +19,7 @@ final class AppPreferences {
         static let localMode = "local_mode"
         static let flagDependent = "flag_dependent"
         static let flagIgnoreLocation = "flag_ignore_location"
+        static let shrinkViewport = "shrink_viewport_keyboard"
     }
 
     init(defaults: UserDefaults = .standard) {
@@ -114,6 +115,15 @@ final class AppPreferences {
             defaults.set(newValue.dependent, forKey: Key.flagDependent)
             defaults.set(newValue.ignoreLocationCheck, forKey: Key.flagIgnoreLocation)
         }
+    }
+
+    /// Default true: WebView height shrinks with the keyboard.
+    var shrinkViewportOnKeyboard: Bool {
+        get {
+            if defaults.object(forKey: Key.shrinkViewport) == nil { return true }
+            return defaults.bool(forKey: Key.shrinkViewport)
+        }
+        set { defaults.set(newValue, forKey: Key.shrinkViewport) }
     }
 
     func clearAll() {

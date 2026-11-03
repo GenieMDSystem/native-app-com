@@ -12,6 +12,7 @@ import android.provider.OpenableColumns
 import android.util.Base64
 import android.util.Log
 import android.view.View
+import android.view.WindowManager
 import android.webkit.ConsoleMessage
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
@@ -51,6 +52,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     companion object {
         private const val TAG = "WebViewBridge"
         private const val EXTRA_URL = "extra_url"
+        private const val EXTRA_SHRINK_VIEWPORT = "extra_shrink_viewport"
         private const val MAX_PASS_THROUGH_BYTES = 1_500_000
         private const val MAX_BRIDGE_FILE_BYTES = 20_000_000
         private val PASS_THROUGH_MIMES = setOf(
@@ -60,9 +62,14 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             "image/gif",
         )
 
-        fun createIntent(context: Context, url: String): Intent {
+        fun createIntent(
+            context: Context,
+            url: String,
+            shrinkViewport: Boolean = true,
+        ): Intent {
             return Intent(context, WebViewActivity::class.java).apply {
                 putExtra(EXTRA_URL, url)
+                putExtra(EXTRA_SHRINK_VIEWPORT, shrinkViewport)
             }
         }
     }
@@ -77,6 +84,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     private var pendingPickerCallback = NativePickerCallback.IMAGE
 
     private var pickerAllowsMultiple = false
+    private var shrinkViewportOnKeyboard = true
 
     /** Same callback iOS should use: window.onNativeImagePicked(jsonString). */
     private val nativeImagePickerSingle = registerForActivityResult(
@@ -152,6 +160,8 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             deliverJsCallback("onNativeLocation", payload)
         }
 
+        shrinkViewportOnKeyboard = intent.getBooleanExtra(EXTRA_SHRINK_VIEWPORT, true)
+        applySoftInputMode()
         setContentView(R.layout.activity_webview)
 
         val startUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
@@ -481,13 +491,35 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         )
     }
 
+    @Suppress("DEPRECATION")
+    private fun applySoftInputMode() {
+        val mode = if (shrinkViewportOnKeyboard) {
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE
+        } else {
+            WindowManager.LayoutParams.SOFT_INPUT_ADJUST_NOTHING
+        }
+        window.setSoftInputMode(mode or WindowManager.LayoutParams.SOFT_INPUT_STATE_HIDDEN)
+        Log.d(TAG, "Keyboard viewport shrink=$shrinkViewportOnKeyboard")
+    }
+
     private fun applySystemBarInsets() {
         val root = findViewById<View>(R.id.root)
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            val ime = if (shrinkViewportOnKeyboard) {
+                insets.getInsets(WindowInsetsCompat.Type.ime())
+            } else {
+                androidx.core.graphics.Insets.NONE
+            }
+            view.setPadding(
+                bars.left,
+                bars.top,
+                bars.right,
+                maxOf(bars.bottom, ime.bottom)
+            )
             insets
         }
+        ViewCompat.requestApplyInsets(root)
     }
 
     private fun configureWebView() {

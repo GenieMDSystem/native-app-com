@@ -10,17 +10,21 @@ struct WebViewScreen: View {
                 if appState.useLegacyWebView {
                     LegacyBridgeWebView(
                         url: url,
+                        shrinkViewportOnKeyboard: appState.shrinkViewportOnKeyboard,
                         onClose: { appState.closeWebView() },
                         onMessage: { appState.showToast($0) }
                     )
-                    .ignoresSafeArea(edges: .bottom)
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
                 } else {
                     BridgeWebView(
                         url: url,
+                        shrinkViewportOnKeyboard: appState.shrinkViewportOnKeyboard,
                         onClose: { appState.closeWebView() },
                         onMessage: { appState.showToast($0) }
                     )
-                    .ignoresSafeArea(edges: .bottom)
+                    .ignoresSafeArea(.container, edges: .bottom)
+                    .ignoresSafeArea(.keyboard, edges: .bottom)
                 }
             } else {
                 ContentUnavailableView(

@@ -104,6 +104,23 @@
             android:text="@string/query_ignore_location"
             android:textColor="@color/home_title" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="@string/webview_options_title"
+            android:textColor="@color/home_title"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <com.google.android.material.checkbox.MaterialCheckBox
+            android:id="@+id/checkShrinkViewport"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            android:text="@string/shrink_viewport_keyboard"
+            android:textColor="@color/home_title" />
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnVisitDoctor"
             android:layout_width="match_parent"

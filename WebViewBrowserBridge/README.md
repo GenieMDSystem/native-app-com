@@ -84,6 +84,14 @@ Optional checkboxes on the home screen (appended only when selected):
 
 `disableCamera` and `forWR` are hidden for now and are **not** added to the URL.
 
+Home also has a **WebView options** checkbox (not a URL param):
+
+| Checkbox | Default | When checked | When unchecked |
+|----------|---------|--------------|----------------|
+| Shrink viewport when keyboard opens | on | WebView height shrinks with the IME so the page `innerHeight` / layout viewport sits above the keyboard | Keyboard overlays the WebView |
+
+The flag is cached and passed into `WebViewActivity`.
+
 ### Example
 
 Defaults `subdomain=dev`, `folder=zoom`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`.

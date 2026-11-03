@@ -11,6 +11,7 @@ import WebKit
 /// (`UIWebView` itself is removed from modern iOS SDKs, so this is the realistic "old WebView" stack.)
 struct LegacyBridgeWebView: UIViewControllerRepresentable {
     let url: URL
+    var shrinkViewportOnKeyboard: Bool = true
     var onClose: () -> Void
     var onMessage: (String) -> Void
 
@@ -21,6 +22,7 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
     func makeUIViewController(context: Context) -> LegacyWebViewController {
         let controller = LegacyWebViewController()
         controller.coordinator = context.coordinator
+        controller.shrinkViewportOnKeyboard = shrinkViewportOnKeyboard
         context.coordinator.controller = controller
         controller.load(url: url)
         return controller
@@ -29,6 +31,7 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
     func updateUIViewController(_ uiViewController: LegacyWebViewController, context: Context) {
         context.coordinator.parent = self
         context.coordinator.controller = uiViewController
+        uiViewController.shrinkViewportOnKeyboard = shrinkViewportOnKeyboard
     }
 
     static func dismantleUIViewController(_ uiViewController: LegacyWebViewController, coordinator: Coordinator) {
@@ -238,18 +241,28 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
 final class LegacyWebViewController: UIViewController {
     private(set) lazy var webView: WKWebView = makeWebView()
     weak var coordinator: LegacyBridgeWebView.Coordinator?
+    private let keyboardShrinkper = KeyboardViewportShrinkper()
+    private var webViewBottomConstraint: NSLayoutConstraint?
+
+    var shrinkViewportOnKeyboard = true {
+        didSet { keyboardShrinkper.isEnabled = shrinkViewportOnKeyboard }
+    }
 
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .white
         view.addSubview(webView)
         webView.translatesAutoresizingMaskIntoConstraints = false
+        let bottom = webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+        webViewBottomConstraint = bottom
         NSLayoutConstraint.activate([
             webView.topAnchor.constraint(equalTo: view.topAnchor),
             webView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            webView.bottomAnchor.constraint(equalTo: view.bottomAnchor)
+            bottom,
         ])
+        keyboardShrinkper.isEnabled = shrinkViewportOnKeyboard
+        keyboardShrinkper.start(container: view, bottomConstraint: bottom)
     }
 
     func load(url: URL) {
@@ -258,6 +271,7 @@ final class LegacyWebViewController: UIViewController {
     }
 
     func teardown() {
+        keyboardShrinkper.stop()
         webView.stopLoading()
         webView.configuration.userContentController.removeScriptMessageHandler(forName: BrowserBridge.messageHandlerName)
         webView.configuration.userContentController.removeScriptMessageHandler(forName: "LegacyPickPhoto")

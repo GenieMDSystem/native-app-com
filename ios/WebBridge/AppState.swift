@@ -31,6 +31,11 @@ final class AppState {
         }
     }
 
+    /// When true, WebView height shrinks with the keyboard instead of overlaying it.
+    var shrinkViewportOnKeyboard: Bool {
+        didSet { prefs.shrinkViewportOnKeyboard = shrinkViewportOnKeyboard }
+    }
+
     private let prefs: AppPreferences
     private let api: GenieMdApi
 
@@ -41,6 +46,7 @@ final class AppState {
         self.session = prefs.getSession()
         self.useLegacyWebView = UserDefaults.standard.bool(forKey: "use_legacy_webview")
         self.useLocalWebHost = AppDestinations.isLocalHostEnabled && prefs.isLocalMode
+        self.shrinkViewportOnKeyboard = prefs.shrinkViewportOnKeyboard
     }
 
     @MainActor

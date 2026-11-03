@@ -26,6 +26,8 @@ Setup defaults: `subdomain=dev`, `folder=zoom`.
 
 Home UI is **Visit Doctor** plus **Logout**. Optional query flags are toggles.
 
+Home also has **Shrink viewport when keyboard opens** (default on, not a URL param). When on, WKWebView height shrinks with the keyboard so the page layout viewport sits above it. When off, the keyboard overlays the WebView.
+
 Always included (`protocolName` is **not** added):
 
 ```

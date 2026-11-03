@@ -36,6 +36,8 @@
     <string name="query_flags_title">Optional query params</string>
     <string name="query_dependent">dependent=true</string>
     <string name="query_ignore_location">ignoreLocationCheck=true</string>
+    <string name="webview_options_title">WebView options</string>
+    <string name="shrink_viewport_keyboard">Shrink viewport when keyboard opens</string>
     <string name="btn_logout">Logout</string>
     <string name="picker_title">Upload a photo</string>
     <string name="picker_take_photo">Take Photo</string>

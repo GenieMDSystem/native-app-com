@@ -96,6 +96,12 @@ class AppPreferences(context: Context) {
             .apply()
     }
 
+    fun isShrinkViewportOnKeyboard(): Boolean = prefs.getBoolean(KEY_SHRINK_VIEWPORT, true)
+
+    fun setShrinkViewportOnKeyboard(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_SHRINK_VIEWPORT, enabled).apply()
+    }
+
     fun clearAll() {
         prefs.edit().clear().apply()
     }
@@ -114,5 +120,6 @@ class AppPreferences(context: Context) {
         private const val KEY_DISPLAY_NAME = "display_name"
         private const val KEY_FLAG_DEPENDENT = "flag_dependent"
         private const val KEY_FLAG_IGNORE_LOCATION = "flag_ignore_location"
+        private const val KEY_SHRINK_VIEWPORT = "shrink_viewport_keyboard"
     }
 }

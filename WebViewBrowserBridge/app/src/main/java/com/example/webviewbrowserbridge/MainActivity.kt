@@ -94,12 +94,20 @@ class MainActivity : AppCompatActivity() {
         checkDependent.setOnCheckedChangeListener { _, _ -> persistFlags() }
         checkIgnoreLocation.setOnCheckedChangeListener { _, _ -> persistFlags() }
 
+        val checkShrinkViewport = findViewById<MaterialCheckBox>(R.id.checkShrinkViewport)
+        checkShrinkViewport.isChecked = prefs.isShrinkViewportOnKeyboard()
+        checkShrinkViewport.setOnCheckedChangeListener { _, checked ->
+            prefs.setShrinkViewportOnKeyboard(checked)
+        }
+
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
             val flags = currentFlags()
             prefs.saveVisitDoctorFlags(flags)
+            val shrinkViewport = checkShrinkViewport.isChecked
+            prefs.setShrinkViewportOnKeyboard(shrinkViewport)
             val url = AppDestinations.visitDoctorUrl(config, profile, switchLocal.isChecked, flags)
-            Log.d(TAG, "Visit Doctor URL: $url")
-            openWebView(url)
+            Log.d(TAG, "Visit Doctor URL: $url shrinkViewport=$shrinkViewport")
+            openWebView(url, shrinkViewport)
         }
 
         findViewById<Button>(R.id.btnLogout).setOnClickListener {
@@ -113,8 +121,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openWebView(url: String) {
-        startActivity(WebViewActivity.createIntent(this, url))
+    private fun openWebView(url: String, shrinkViewport: Boolean) {
+        startActivity(WebViewActivity.createIntent(this, url, shrinkViewport))
     }
 
     private fun applySystemBarInsets() {

@@ -1,8 +1,10 @@
 import SwiftUI
+import UIKit
 import WebKit
 
 struct BridgeWebView: UIViewRepresentable {
     let url: URL
+    var shrinkViewportOnKeyboard: Bool = true
     var onClose: () -> Void
     var onMessage: (String) -> Void
 
@@ -10,7 +12,7 @@ struct BridgeWebView: UIViewRepresentable {
         Coordinator(parent: self)
     }
 
-    func makeUIView(context: Context) -> WKWebView {
+    func makeUIView(context: Context) -> UIView {
         let userContent = WKUserContentController()
         let script = WKUserScript(
             source: BrowserBridge.injectionSource,
@@ -26,34 +28,52 @@ struct BridgeWebView: UIViewRepresentable {
         config.mediaTypesRequiringUserActionForPlayback = []
         config.defaultWebpagePreferences.allowsContentJavaScript = true
 
+        let container = UIView()
+        container.backgroundColor = .white
+
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.allowsBackForwardNavigationGestures = true
-        webView.scrollView.contentInsetAdjustmentBehavior = .automatic
+        webView.scrollView.contentInsetAdjustmentBehavior = .never
+        webView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(webView)
+
+        let bottom = webView.bottomAnchor.constraint(equalTo: container.bottomAnchor)
+        NSLayoutConstraint.activate([
+            webView.topAnchor.constraint(equalTo: container.topAnchor),
+            webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            bottom,
+        ])
 
         context.coordinator.webView = webView
+        context.coordinator.keyboardShrinkper.isEnabled = shrinkViewportOnKeyboard
+        context.coordinator.keyboardShrinkper.start(container: container, bottomConstraint: bottom)
         webView.load(URLRequest(url: url))
-        return webView
+        return container
     }
 
-    func updateUIView(_ webView: WKWebView, context: Context) {
+    func updateUIView(_ uiView: UIView, context: Context) {
         context.coordinator.parent = self
+        context.coordinator.keyboardShrinkper.isEnabled = shrinkViewportOnKeyboard
     }
 
-    static func dismantleUIView(_ uiView: WKWebView, coordinator: Coordinator) {
-        uiView.stopLoading()
-        uiView.configuration.userContentController.removeScriptMessageHandler(
+    static func dismantleUIView(_ uiView: UIView, coordinator: Coordinator) {
+        coordinator.keyboardShrinkper.stop()
+        coordinator.webView?.stopLoading()
+        coordinator.webView?.configuration.userContentController.removeScriptMessageHandler(
             forName: BrowserBridge.messageHandlerName
         )
-        uiView.navigationDelegate = nil
-        uiView.uiDelegate = nil
+        coordinator.webView?.navigationDelegate = nil
+        coordinator.webView?.uiDelegate = nil
     }
 
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, BridgeCallbackHost {
         var parent: BridgeWebView
         weak var webView: WKWebView?
         var loadURLRequest: String?
+        let keyboardShrinkper = KeyboardViewportShrinkper()
         private let imagePicker = NativeImagePicker()
         private let location = NativeLocation()
 

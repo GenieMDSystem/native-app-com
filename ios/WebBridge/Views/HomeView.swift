@@ -65,6 +65,14 @@ struct HomeView: View {
                 }
                 .padding(.bottom, 16)
 
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("WebView options")
+                        .font(.system(size: 15, weight: .semibold))
+                        .foregroundStyle(AppTheme.title)
+                    flagToggle("Shrink viewport when keyboard opens", isOn: $appState.shrinkViewportOnKeyboard)
+                }
+                .padding(.bottom, 16)
+
                 Button {
                     openVisitDoctor()
                 } label: {
