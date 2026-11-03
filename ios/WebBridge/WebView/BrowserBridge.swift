@@ -12,6 +12,7 @@ import UIKit
 // type 6 OPEN_NATIVE_FILE_PICKER: { type: 6, data: { accept: '*/*', source: 'files', multiple } }
 //   Native answers with window.onNativeFilePicked(json).
 // type 7 OPEN_EXTERNAL_LINK: { type: 7, data: { url, success, openInBrowser, target } }
+//   url may be http(s) (browser/WebView) or tel:/mailto:/sms: (system dialer/mail/sms).
 // type 8 GET_NATIVE_LOCATION: { type: 8, data: { enableHighAccuracy, timeout } }
 //   Native answers with window.onNativeLocation(json).
 enum BridgeAction: Int {
@@ -143,6 +144,14 @@ enum BrowserBridge {
             return
         }
 
+        // tel:/mailto:/sms: must open the system app — never load in the WebView.
+        if isAppSchemeURL(payload.url) {
+            DispatchQueue.main.async {
+                openAppScheme(payload.url, host: host)
+            }
+            return
+        }
+
         guard isValidHTTPURL(payload.url) else {
             host.showBridgeMessage("Invalid URL")
             return
@@ -235,6 +244,27 @@ enum BrowserBridge {
                 host.showBridgeMessage("Failed to open browser")
             }
         }
+    }
+
+    /** Opens dialer / mail / sms for non-http schemes from type 7 (e.g. Call 911 → tel:911). */
+    private static func openAppScheme(_ urlString: String, host: BridgeCallbackHost) {
+        guard let url = URL(string: urlString) else {
+            host.showBridgeMessage("Invalid URL")
+            return
+        }
+        UIApplication.shared.open(url) { success in
+            if !success {
+                host.showBridgeMessage("Unable to open link")
+            }
+        }
+    }
+
+    private static func isAppSchemeURL(_ urlString: String) -> Bool {
+        guard !urlString.isEmpty,
+              let url = URL(string: urlString),
+              let scheme = url.scheme?.lowercased()
+        else { return false }
+        return scheme == "tel" || scheme == "mailto" || scheme == "sms"
     }
 
     private static func isValidHTTPURL(_ urlString: String) -> Bool {

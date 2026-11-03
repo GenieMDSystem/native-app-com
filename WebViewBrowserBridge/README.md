@@ -463,6 +463,7 @@ Used by `openWindow` in the web app. Does **not** close the WebView (unlike type
 |-------|----------|
 | `target: "_blank"` or `openInBrowser: true` | Open `url` in the system browser; keep the WebView open |
 | `target: "_self"` | Load `url` inside the same WebView |
+| `url` starts with `tel:`, `mailto:`, or `sms:` | Open the system dialer / mail / SMS app (never load in WebView). Used by Call 911. |
 
 #### Type `8` — Current location **(new)**
 

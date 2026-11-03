@@ -22,6 +22,7 @@ import org.json.JSONObject
 // type 6 OPEN_NATIVE_FILE_PICKER: { type: 6, data: { accept: '*/*', source: 'files', multiple } }
 //   Native answers with window.onNativeFilePicked(json).
 // type 7 OPEN_EXTERNAL_LINK: { type: 7, data: { url, success, openInBrowser, target } }
+//   url may be http(s) (browser/WebView) or tel:/mailto:/sms: (system dialer/mail/sms).
 // type 8 GET_NATIVE_LOCATION: { type: 8, data: { enableHighAccuracy, timeout } }
 //   Native answers with window.onNativeLocation(json).
 enum class BridgeAction(val type: Int) {
@@ -172,6 +173,12 @@ class BrowserBridge(
             return
         }
 
+        // tel:/mailto:/sms: must open the system app — never load in the WebView.
+        if (isAppSchemeUrl(payload.url)) {
+            mainHandler.post { openAppScheme(payload.url) }
+            return
+        }
+
         if (!isValidHttpUrl(payload.url)) {
             Log.d(TAG, "Error: rejected invalid URL: ${payload.url}")
             toast("Invalid URL")
@@ -268,6 +275,40 @@ class BrowserBridge(
         } catch (e: Exception) {
             Log.d(TAG, "Error: failed to launch browser for URL: $url", e)
             toast("Failed to open browser")
+        }
+    }
+
+    /** Opens dialer / mail / sms for non-http schemes from type 7 (e.g. Call 911 → tel:911). */
+    private fun openAppScheme(url: String) {
+        Log.d(TAG, "App-scheme launch requested: $url")
+        try {
+            val uri = Uri.parse(url)
+            val intent = when (uri.scheme?.lowercase()) {
+                "tel" -> Intent(Intent.ACTION_DIAL, uri)
+                else -> Intent(Intent.ACTION_VIEW, uri)
+            }.apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            Log.d(TAG, "App-scheme launch success: $url")
+        } catch (e: ActivityNotFoundException) {
+            Log.d(TAG, "Error: no app available for URL: $url", e)
+            toast("Unable to open link")
+        } catch (e: Exception) {
+            Log.d(TAG, "Error: failed to open app scheme URL: $url", e)
+            toast("Unable to open link")
+        }
+    }
+
+    private fun isAppSchemeUrl(url: String): Boolean {
+        if (url.isBlank()) return false
+        return try {
+            when (Uri.parse(url).scheme?.lowercase()) {
+                "tel", "mailto", "sms" -> true
+                else -> false
+            }
+        } catch (_: Exception) {
+            false
         }
     }
 

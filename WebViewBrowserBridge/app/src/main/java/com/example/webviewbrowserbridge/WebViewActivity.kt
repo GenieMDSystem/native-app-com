@@ -1,6 +1,7 @@
 package com.example.webviewbrowserbridge
 
 import android.annotation.SuppressLint
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -671,20 +672,45 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         webView.evaluateJavascript(script, null)
     }
 
+    /** Intercept tel:/mailto:/sms: so the WebView never tries to load them as pages. */
+    private fun handleAppSchemeUri(uri: Uri): Boolean {
+        val scheme = uri.scheme?.lowercase() ?: return false
+        if (scheme != "tel" && scheme != "mailto" && scheme != "sms") {
+            return false
+        }
+        return try {
+            val intent = when (scheme) {
+                "tel" -> Intent(Intent.ACTION_DIAL, uri)
+                else -> Intent(Intent.ACTION_VIEW, uri)
+            }
+            startActivity(intent)
+            true
+        } catch (e: ActivityNotFoundException) {
+            Log.d(TAG, "No app for scheme URL: $uri", e)
+            Toast.makeText(this, "Unable to open link", Toast.LENGTH_SHORT).show()
+            true
+        } catch (e: Exception) {
+            Log.d(TAG, "Failed to open scheme URL: $uri", e)
+            true
+        }
+    }
+
     private fun attachClients() {
         webView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(
                 view: WebView?,
                 request: WebResourceRequest?
             ): Boolean {
-                Log.d(TAG, "shouldOverrideUrlLoading: ${request?.url}")
-                return false
+                val uri = request?.url
+                Log.d(TAG, "shouldOverrideUrlLoading: $uri")
+                return uri != null && handleAppSchemeUri(uri)
             }
 
             @Deprecated("Deprecated in Java")
             override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
                 Log.d(TAG, "shouldOverrideUrlLoading (legacy): $url")
-                return false
+                if (url.isNullOrBlank()) return false
+                return handleAppSchemeUri(Uri.parse(url))
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {

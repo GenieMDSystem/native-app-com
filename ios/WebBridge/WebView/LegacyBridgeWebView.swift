@@ -201,6 +201,13 @@ struct LegacyBridgeWebView: UIViewControllerRepresentable {
             decidePolicyFor navigationAction: WKNavigationAction,
             decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
         ) {
+            if let url = navigationAction.request.url,
+               let scheme = url.scheme?.lowercased(),
+               scheme == "tel" || scheme == "mailto" || scheme == "sms" {
+                UIApplication.shared.open(url)
+                decisionHandler(.cancel)
+                return
+            }
             decisionHandler(.allow)
         }
 
