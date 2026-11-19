@@ -44,6 +44,7 @@ enum AppDestinations {
         url += "&disableCamera=true"
         url += "&openPickerInNative=true"
         url += "&forWR=true"
+        url += "&showCQ=true"
         return url
     }
 

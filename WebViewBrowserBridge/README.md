@@ -26,6 +26,7 @@ These flags were added to the WebView URLs:
 |-------|-------|------------------|--------------------|----------------|
 | **`disableCamera`** **(new)** | `true` | yes | yes | no |
 | **`forWR`** **(new)** | `true` | yes | no | no |
+| **`showCQ`** **(new)** | `true` | yes | no | no |
 | **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
 
 All other query params (`patientLanguageID`, `patientOEMID`, `protocolName`, `dependent`, `fromWebView`, `ignoreLocationCheck`) are unchanged.
@@ -53,6 +54,7 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &disableCamera=true          # NEW
   &openPickerInNative=true     # NEW — native camera / photo library
   &forWR=true                  # NEW — Visit Doctor only
+  &showCQ=true                 # NEW — show RMX connect queue page
 ```
 
 ### 2. Schedule Visit Now
@@ -88,9 +90,9 @@ With defaults `subdomain=mhc`, `folder=apps2`, and profile `clinicID=1000254`, `
 
 **Visit Doctor:**
 ```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true&showCQ=true
 ```
-**New:** `disableCamera=true`, `openPickerInNative=true`, `forWR=true`
+**New:** `disableCamera=true`, `openPickerInNative=true`, `forWR=true`, `showCQ=true`
 
 **Schedule Visit:**
 ```
@@ -171,6 +173,14 @@ Schedules List does not use `disableCamera`.
 `&forWR=true` is appended only on **Visit Doctor Now** (waiting room).
 
 Schedule Visit Now and Schedules List do not include `forWR`.
+
+### `showCQ=true` — Visit Doctor only **(new)**
+
+`&showCQ=true` (show Connect Queue) is appended only on **Visit Doctor Now**.
+
+When the waiting-room connect URL is opened, PTX forwards `showCQ=true` so RMX shows the connect queue page (“Connecting to a Doctor”).
+
+Schedule Visit Now and Schedules List do not include `showCQ`.
 
 ### `openPickerInNative=true` **(new)**
 

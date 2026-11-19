@@ -26,9 +26,12 @@ Same flags as Android. Only `fromWebView` differs (`ios` vs `android`).
 |-------|-------|------------------|--------------------|----------------|
 | `disableCamera` | `true` | yes | yes | no |
 | `forWR` | `true` | yes | no | no |
+| **`showCQ`** **(new)** | `true` | yes | no | no |
 | **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
 
 `openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Use native types 4 / 5 / 6 instead.
+
+`showCQ=true` (show Connect Queue) is Visit Doctor only. PTX forwards it so RMX shows the connect queue page (“Connecting to a Doctor”).
 
 ### Visit Doctor Now
 
@@ -42,6 +45,7 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &ignoreLocationCheck=true
   &disableCamera=true
   &forWR=true
+  &showCQ=true                 # NEW — show RMX connect queue page
   &openPickerInNative=true     # NEW — native photo / video / file pickers
 ```
 

@@ -49,7 +49,7 @@ object AppDestinations {
             append(profile.languageId)
             append("&patientOEMID=")
             append(profile.oemID)
-            append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true")
+            append("&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true&showCQ=true")
         }
     }
 
