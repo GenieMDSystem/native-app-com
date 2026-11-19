@@ -3,246 +3,351 @@
 Kotlin Android app that:
 
 1. Saves environment config (subdomain + folder) and user session
-2. Builds **three WebView URLs** from that data
+2. Builds WebView URLs from that data
 3. Hosts those pages in a native WebView with a **JavaScript bridge** (`NativeApp`)
 
----
+This README matches the PTX host-link / bridge docs and covers both native branches:
 
-## How the three links are constructed
+- `v2-splash-login-page`
+- `visit-doctor-optional-params`
 
-URL builders live in `AppDestinations.kt`.  
-Values come from:
+| File | Role |
+|------|------|
+| `AppDestinations.kt` | Builds Visit Doctor / Schedule Visit / Schedules List URLs |
+| `BrowserBridge.kt` | `NativeApp.callback` types 1–8 |
+| `WebViewActivity.kt` | Full-screen WebView + native pickers |
+| `MainActivity.kt` | Home buttons |
+| `NativeLocationHelper.kt` | Type 8 location |
 
-| Source | Fields |
-|--------|--------|
-| Setup (cached) | `subdomain`, `folder` → `baseUrl` = `https://{subdomain}.geniemd.net` · `environmentUrl` = `https://{subdomain}.geniemd.net/{folder}` |
-| Profile (after login) | `clinicID`, `userID`, `languageId`, `oemID` |
+Must stay aligned with PTX:
 
-### New query params
-
-These flags were added to the WebView URLs:
-
-| Param | Value | Visit Doctor Now | Schedule Visit Now | Schedules List |
-|-------|-------|------------------|--------------------|----------------|
-| **`disableCamera`** **(new)** | `true` | yes | yes | no |
-| **`forWR`** **(new)** | `true` | yes | no | no |
-| **`showCQ`** **(new)** | `true` | yes | no | no |
-| **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
-
-All other query params (`patientLanguageID`, `patientOEMID`, `protocolName`, `dependent`, `fromWebView`, `ignoreLocationCheck`) are unchanged.
-
-`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Instead it must use the native picker bridge:
-
-- photos → type **4** → `window.onNativeImagePicked`
-- video → type **5** → `window.onNativeVideoPicked`
-- documents → type **6** → `window.onNativeFilePicked`
-
-That avoids the iOS WKWebView freeze when Limited Photos access dismisses the system picker without firing `change` / `cancel`.
-
-### 1. Visit Doctor Now (Waiting Room)
-
-`AppDestinations.visitDoctorUrl(config, profile)`
-
-```
-https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
-  ?patientLanguageID={languageId}
-  &patientOEMID={oemID}
-  &protocolName=Revamp%20TeleConsultation
-  &dependent=true
-  &fromWebView=android
-  &ignoreLocationCheck=true
-  &disableCamera=true          # NEW
-  &openPickerInNative=true     # NEW — native camera / photo library
-  &forWR=true                  # NEW — Visit Doctor only
-  &showCQ=true                 # NEW — show RMX connect queue page
-```
-
-### 2. Schedule Visit Now
-
-`AppDestinations.scheduleVisitUrl(config, profile)`
-
-```
-https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
-  ?patientLanguageID={languageId}
-  &patientOEMID={oemID}
-  &protocolName=Revamp%20Scheudle%20a%20TeleConsultation
-  &dependent=true
-  &fromWebView=android
-  &ignoreLocationCheck=true
-  &disableCamera=true          # NEW
-  &openPickerInNative=true     # NEW — native camera / photo library
-```
-
-### 3. Schedules List
-
-`AppDestinations.schedulesListUrl(config, profile)`
-
-```
-https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patient-schedule
-  ?fromWebView=android
-```
-
-### Example
-
-New query params are called out below the full URL.
-
-With defaults `subdomain=mhc`, `folder=apps2`, and profile `clinicID=1000254`, `userID=0b4a…`, `languageId=1`, `oemID=100`:
-
-**Visit Doctor:**
-```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true&showCQ=true
-```
-**New:** `disableCamera=true`, `openPickerInNative=true`, `forWR=true`, `showCQ=true`
-
-**Schedule Visit:**
-```
-https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true
-```
-**New:** `disableCamera=true`, `openPickerInNative=true`
-
-**Schedules List:**
-```
-https://mhc.geniemd.net/apps2/rpm/#/webview/1000254/0b4a…/patient-schedule?fromWebView=android
-```
-No new query params.
+- `assessment-query-params.service.ts`
+- `bridge-action.constant.ts`
+- `utility.ts` (`callNativeBridge`, `buildWaitingRoomConnectUrl`)
 
 ---
 
-## Configuring for production / other environments
+## Local hosts
 
-Update URL building in `AppDestinations.kt` (and Setup defaults in `strings.xml` if needed).
+| App | Dev server | Emulator forward |
+|-----|------------|------------------|
+| Assessment (PTX) | `http://localhost:4201` | `adb reverse tcp:4201 tcp:4201` |
+| RPM (schedules + WR connect) | `http://localhost:4200/rpm` | `adb reverse tcp:4200 tcp:4200` |
 
-### Domain and folder
+```bash
+adb reverse tcp:4200 tcp:4200
+adb reverse tcp:4201 tcp:4201
+```
 
-On first launch (Setup screen), or by changing defaults:
-
-| Field | Sample (current) | Production example |
-|-------|------------------|--------------------|
-| Subdomain | `mhc` | your prod subdomain (e.g. `www`, `app`, clinic code) |
-| Folder | `apps2` | your prod folder (e.g. `apps`, `prod`) |
-
-Resulting base: `https://{subdomain}.geniemd.net/{folder}`
-
-Defaults live in `res/values/strings.xml`:
+Setup defaults (current v2 sample): `subdomain=mhc`, `folder=apps2` → `https://mhc.geniemd.net/apps2`.
 
 ```xml
 <string name="default_subdomain">mhc</string>
 <string name="default_folder">apps2</string>
 ```
 
-Users can also enter production values on the Setup screen; they are saved in SharedPreferences.
+---
 
-### `protocolName` — use the correct protocol title
+## Shared links by native branch
 
-These query values must match the **exact protocol names** configured in your GenieMD / assessment backend:
+| Branch | Home links | Notes |
+|--------|------------|-------|
+| `v2-splash-login-page` | **Visit Doctor Now**, **Schedule Visit Now**, **Schedules List** (`patient-schedule`) | Full assessment query set including `protocolName`, `forWR`, `showCQ`, `disableCamera` |
+| `visit-doctor-optional-params` | **Visit Doctor** only (+ Logout) | Minimal always-on params; optional flags via home checkboxes; **no** `protocolName` / `forWR` / `showCQ` / `disableCamera` by default |
 
-| Button | Current sample value | Notes |
-|--------|----------------------|--------|
-| Visit Doctor | `Revamp%20TeleConsultation` | URL-encoded; use your prod waiting-room / teleconsult protocol name |
-| Schedule Visit | `Revamp%20Scheudle%20a%20TeleConsultation` | URL-encoded; use your prod schedule protocol name |
+### Path params (assessment links)
 
-Change them in `AppDestinations.kt` where the query string is appended, for example:
+| Path segment | Description |
+|--------------|-------------|
+| `{clinicID}` | Clinic for the protocol route. Single-clinic: profile clinic id. Multi-clinic: **selected** clinic id (not the profile/master clinic). |
+| `consent` | Starts at the consent screen. |
+| `{userID}` | Logged-in patient / profile user id from native login. |
 
-```kotlin
-// Visit Doctor — replace with your production protocol name
-append("&protocolName=Your%20Production%20TeleConsultation&...")
+### Path params (Schedules List / RPM)
 
-// Schedule Visit — replace with your production schedule protocol name
-append("&protocolName=Your%20Production%20Schedule%20Name&...")
-```
-
-Spaces must be encoded as `%20`.
-
-### `dependent=true` — optional
-
-`&dependent=true` is appended today for Visit Doctor and Schedule Visit.
-
-- **Keep it** if the web flow should run in dependent mode.
-- **Remove it** if you do not want dependent behavior — simply do not append `&dependent=true` in `AppDestinations.kt`.
-
-Schedules List does not use `dependent`.
-
-### `disableCamera=true` **(new)**
-
-`&disableCamera=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
-
-Schedules List does not use `disableCamera`.
-
-### `forWR=true` — Visit Doctor only **(new)**
-
-`&forWR=true` is appended only on **Visit Doctor Now** (waiting room).
-
-Schedule Visit Now and Schedules List do not include `forWR`.
-
-### `showCQ=true` — Visit Doctor only **(new)**
-
-`&showCQ=true` (show Connect Queue) is appended only on **Visit Doctor Now**.
-
-When the waiting-room connect URL is opened, PTX forwards `showCQ=true` so RMX shows the connect queue page (“Connecting to a Doctor”).
-
-Schedule Visit Now and Schedules List do not include `showCQ`.
-
-### `openPickerInNative=true` **(new)**
-
-`&openPickerInNative=true` is appended for **Visit Doctor Now** and **Schedule Visit Now**.
-
-When this flag is present, the web page must use the native picker bridge instead of a file input:
-
-| Need | Send | Native calls |
-|------|------|----------------|
-| Photo | type `4` | `window.onNativeImagePicked` |
-| Video | type `5` | `window.onNativeVideoPicked` |
-| Document | type `6` | `window.onNativeFilePicked` |
-
-Types 4, 5, and 6 are separate events. Do not answer a video or document request on `onNativeImagePicked`.
-
-Schedules List does not use `openPickerInNative`.
-
-### Android vs iOS — `fromWebView`
-
-| Platform | Query value |
-|----------|-------------|
-| Android (this app) | `fromWebView=android` |
-| iOS | `fromWebView=ios` |
-
-For an iOS WebView host, use the **same URL shapes** and only change:
-
-```
-fromWebView=android  →  fromWebView=ios
-```
-
-Apply that change on all three links (Visit Doctor, Schedule Visit, Schedules List). The rest of the path and query params stay the same.
-
-An iOS host app lives at the repo root in `ios/WebBridge.xcodeproj`. It uses `fromWebView=ios`. See `../ios/README.md`.
+| Path segment | Description |
+|--------------|-------------|
+| `{clinicID}` | Clinic id for the patient schedule webview |
+| `{userID}` | Logged-in user id |
+| `patient-schedule` | RPM schedules list route |
 
 ---
 
-## WebView native bridge
+## Branch A — `v2-splash-login-page`
 
-The WebView injects a JavaScript interface named **`NativeApp`**. The web app may also call `window.callNative(type, data)`, which forwards to the same handler.
+Builders: `visitDoctorUrl`, `scheduleVisitUrl`, `schedulesListUrl` in `AppDestinations.kt`.
 
-```javascript
-NativeApp.callback(JSON.stringify({ type: number, data: { ... } }));
-// or
-window.callNative(type, data);
+### 1. Visit Doctor Now (waiting room / teleconsult)
+
+```
+{assessmentBase}/#/protocol/{clinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &protocolName=Revamp%20TeleConsultation
+  &dependent=true
+  &fromWebView=android
+  &ignoreLocationCheck=true
+  &disableCamera=true
+  &openPickerInNative=true
+  &forWR=true
+  &showCQ=true
 ```
 
-Native handler: `BrowserBridge.callback(json)` in `BrowserBridge.kt` (iOS: `BrowserBridge.handle` in `BrowserBridge.swift`).
+### 2. Schedule Visit Now
+
+```
+{assessmentBase}/#/protocol/{clinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &protocolName=Revamp%20Scheudle%20a%20TeleConsultation
+  &dependent=true
+  &fromWebView=android
+  &ignoreLocationCheck=true
+  &disableCamera=true
+  &openPickerInNative=true
+```
+
+No `forWR` / `showCQ` on Schedule Visit.
+
+### 3. Schedules List (`patient-schedule`) — extra RPM link
+
+Opens the RPM patient schedule list (not an assessment protocol).
+
+```
+{rpmBase}/#/webview/{clinicID}/{userID}/patient-schedule
+  ?fromWebView=android
+```
+
+| | Live | Local |
+|-|------|-------|
+| Base | `https://{subdomain}.geniemd.net/{folder}/rpm` | `http://localhost:4200/rpm` |
+| Full example | `https://mhc.geniemd.net/apps2/rpm/#/webview/1000254/0b4a…/patient-schedule?fromWebView=android` | `http://localhost:4200/rpm/#/webview/…/patient-schedule?fromWebView=android` |
+
+Only query param: **`fromWebView`**. No `protocolName`, `forWR`, `showCQ`, `openPickerInNative`, etc.
+
+| Param on v2 | Visit Doctor | Schedule Visit | Schedules List |
+|-------------|--------------|----------------|----------------|
+| `patientLanguageID` | yes | yes | no |
+| `patientOEMID` | yes | yes | no |
+| `protocolName` | yes | yes | no |
+| `dependent` | yes (always) | yes (always) | no |
+| `fromWebView` | yes | yes | yes |
+| `ignoreLocationCheck` | yes (always) | yes (always) | no |
+| `disableCamera` | yes | yes | no |
+| `openPickerInNative` | yes | yes | no |
+| `forWR` | yes | no | no |
+| `showCQ` | yes | no | no |
+
+**Examples** (`subdomain=mhc`, `folder=apps2`, `clinicID=1000254`, `languageId=1`, `oemID=100`):
+
+**Visit Doctor:**
+```
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true&forWR=true&showCQ=true
+```
+
+**Schedule Visit:**
+```
+https://mhc.geniemd.net/apps2/assessment/#/protocol/1000254/consent/0b4a…?patientLanguageID=1&patientOEMID=100&protocolName=Revamp%20Scheudle%20a%20TeleConsultation&dependent=true&fromWebView=android&ignoreLocationCheck=true&disableCamera=true&openPickerInNative=true
+```
+
+**Schedules List:**
+```
+https://mhc.geniemd.net/apps2/rpm/#/webview/1000254/0b4a…/patient-schedule?fromWebView=android
+```
+
+---
+
+## Branch B — `visit-doctor-optional-params`
+
+Home UI: **Visit Doctor** + **Logout**. Optional query flags are **checkboxes** (appended only when checked).
+
+### Visit Doctor — always included
+
+```
+{assessmentBase}/#/protocol/{clinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &fromWebView=android
+  &openPickerInNative=true
+```
+
+- `protocolName` is **not** added (protocol comes from clinic / route defaults).
+- `disableCamera`, `forWR`, and `showCQ` are **hidden** on this branch and are **not** added to the URL.
+- This branch does **not** ship Schedule Visit or Schedules List home buttons.
+
+### Optional checkboxes (appended only when selected)
+
+| Checkbox | Appended when checked |
+|----------|------------------------|
+| Dependent | `&dependent=true` |
+| Ignore location check | `&ignoreLocationCheck=true` |
+
+**Always (no optional flags):**
+
+```
+…/consent/{userID}?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true
+```
+
+**Optional flags checked:**
+
+```
+…/consent/{userID}?patientLanguageID=1&patientOEMID=100&fromWebView=android&openPickerInNative=true&dependent=true&ignoreLocationCheck=true
+```
+
+### Multi-clinic
+
+When multi-clinic:
+
+- Path `{clinicID}` = **selected** clinic id
+- Query: `multiClinic=true&masterClinic={profileClinicID}`
+
+```
+…/#/protocol/{selectedClinicID}/consent/{userID}
+  ?patientLanguageID={languageId}
+  &patientOEMID={oemID}
+  &fromWebView=android
+  &openPickerInNative=true
+  &multiClinic=true
+  &masterClinic={profileClinicID}
+```
+
+Do **not** add `multiClinic` / `masterClinic` for a single-clinic user.
+
+### WebView option (not a URL param)
+
+| Checkbox | Default | When unchecked | When checked |
+|----------|---------|----------------|--------------|
+| Shrink viewport when keyboard opens | **off** | Keyboard overlays the WebView | WebView height shrinks with the IME |
+
+Cached in native prefs and passed into `WebViewActivity` — not part of the PTX query string.
+
+| Param on visit-doctor branch | Always | Optional checkbox | Not used |
+|------------------------------|--------|-------------------|----------|
+| `patientLanguageID` | yes | | |
+| `patientOEMID` | yes | | |
+| `fromWebView` | yes | | |
+| `openPickerInNative` | yes | | |
+| `dependent` | | yes | |
+| `ignoreLocationCheck` | | yes | |
+| `multiClinic` / `masterClinic` | when multi-clinic | | |
+| `protocolName` | | | not added |
+| `disableCamera` | | | not added |
+| `forWR` | | | not added |
+| `showCQ` | | | not added |
+
+---
+
+## Query params — detailed reference
+
+##### `patientLanguageID`
+
+- **Type:** string number (e.g. `1`)
+- **Source:** native profile `languageId`
+- **Purpose:** Selects the Language API locale for assessment copy.
+- **Branches:** always on assessment links (both branches). Not on Schedules List.
+
+##### `patientOEMID`
+
+- **Type:** string number (e.g. `100`, `110`)
+- **Source:** native profile `oemID`
+- **Purpose:** OEM / brand context for clinic config and localization.
+- **Branches:** always on assessment links (both branches). Not on Schedules List.
+
+##### `protocolName`
+
+- **Type:** URL-encoded protocol title
+- **Examples:** `Revamp%20TeleConsultation`, `Revamp%20Scheudle%20a%20TeleConsultation`
+- **Purpose:** Tells PTX which protocol definition to load. Must match GenieMD / Protocol Designer exactly.
+- **Branches:** **v2 only** (Visit + Schedule). **Not** on `visit-doctor-optional-params` or Schedules List.
+- **Note:** Spaces must be `%20`. Change in `AppDestinations.kt` for production names.
+
+##### `dependent`
+
+- **Type:** `true` \| `1` \| `yes` → dependent flow
+- **Purpose:** Caregiver-for-another-patient assessment instead of self.
+- **Branches:** always on **v2** Visit/Schedule; optional checkbox on **visit-doctor-optional-params**
+
+##### `fromWebView`
+
+- **Type:** `android` (this app) \| `ios` (iOS host)
+- **Purpose:** Marks the session as inside a native WebView. When set:
+  - External links go through the native bridge
+  - Waiting-room / schedule open uses bridge types 1 / 3
+  - With `disableCamera` + `openPickerInNative` enables native media pickers
+- **Branches:** always on all links including **Schedules List**
+
+##### `ignoreLocationCheck`
+
+- **Type:** `true`
+- **Purpose:** Skips the web geolocation gate (native type 8 can still provide location).
+- **Branches:** always on **v2** Visit/Schedule; optional checkbox on **visit-doctor-optional-params**
+
+##### `disableCamera`
+
+- **Type:** `true`
+- **Purpose:** Hides in-page “Take Photo” / camera capture UI; prefer file / native picker.
+- **Branches:** **v2** Visit + Schedule only. Hidden on **visit-doctor-optional-params**. Not on Schedules List.
+
+##### `openPickerInNative`
+
+- **Type:** `true`
+- **Purpose:** Web must **not** open `<input type="file">`. Use bridge types **4 / 5 / 6**.
+- **Required for native image library in PTX:** `fromWebView` + `disableCamera` + `openPickerInNative`
+- **Branches:** always on assessment links (both branches). Not on Schedules List.
+- **Why:** Avoids iOS WKWebView freezes with Limited Photos access.
+
+##### `forWR`
+
+- **Type:** `true`
+- **Purpose (for Waiting Room):**
+  1. Forces waiting-room encounter type/status on submit
+  2. After provider notify, opens the waiting-room connect URL (bridge type 1)
+- Does **not** create `Meetings/Create` by itself.
+- **Branches:** **v2 Visit Doctor only**
+
+##### `showCQ`
+
+- **Type:** `true`
+- **Purpose (show Connect Queue):** PTX forwards `&showCQ=true` onto the WR connect URL so RMX shows the connect queue page (“Connecting to a Doctor”).
+- **Branches:** **v2 Visit Doctor only**
+
+##### `multiClinic` / `masterClinic`
+
+- **`multiClinic=true`:** path clinic = selected clinic
+- **`masterClinic={profileClinicID}`:** profile/master clinic id
+- Documented on **visit-doctor-optional-params**; also valid if v2 sends them
+- Do not send for single-clinic users
+
+---
+
+## Native bridge events — detailed reference
+
+Web → native:
+
+```javascript
+window.callNative(type, data);
+// or
+NativeApp.callback(JSON.stringify({ type, data }));
+```
+
+Native handler: `BrowserBridge.callback(json)` in `BrowserBridge.kt`.
 
 Must match PTX `bridge-action.constant.ts`.
 
-| type | Meaning | Web → native | Native → web |
-|------|---------|--------------|--------------|
-| 1 | Waiting room | `{ url, success, openInBrowser }` | — |
-| 2 | Close WebView | `{ success, close }` | — |
-| 3 | Open schedule link | `{ url, success, openInBrowser }` | — |
-| 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
-| **5** **(new)** | Video picker | `{ accept: "video/*", source: "photoLibrary", multiple: false }` | `window.onNativeVideoPicked` |
-| **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
-| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — |
-| **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
+| type | Constant | Meaning | Native → web |
+|------|----------|---------|--------------|
+| 1 | `WAITING_ROOM` | Open waiting-room connect URL | — |
+| 2 | `SCHEDULE` | Close WebView / return home | — |
+| 3 | `OPEN_SCHEDULE_LINK` | Open schedule URL | — |
+| 4 | `OPEN_NATIVE_IMAGE_PICKER` | Photo picker | `window.onNativeImagePicked` |
+| 5 | `OPEN_NATIVE_VIDEO_PICKER` | Video picker | `window.onNativeVideoPicked` |
+| 6 | `OPEN_NATIVE_FILE_PICKER` | Document picker | `window.onNativeFilePicked` |
+| 7 | `OPEN_EXTERNAL_LINK` | Open http(s) or `tel:` / `mailto:` / `sms:` | — (WebView stays open) |
+| 8 | `GET_NATIVE_LOCATION` | Current GPS location | `window.onNativeLocation` |
 
-Native picker and location callbacks always pass a **JSON string**, not an object:
+Types **4 / 5 / 6** are separate. Never answer video/document on `onNativeImagePicked`.
+
+Callbacks always pass a **JSON string**. Register the handler **before** calling native.
 
 ```javascript
 window.onNativeImagePicked(JSON.stringify({ ... }))
@@ -251,50 +356,46 @@ window.onNativeFilePicked(JSON.stringify({ ... }))
 window.onNativeLocation(JSON.stringify({ ... }))
 ```
 
-Register the matching `window.onNative*` handler **before** sending the type.
+---
 
-### Callback types
+### Type `1` — Waiting room (`WAITING_ROOM`)
 
-#### Type `1` — Waiting room
+Used after provider notify when `forWR=true`. Opens the RPM connect URL (may include `showCQ=true`).
 
 ```json
 {
   "type": 1,
   "data": {
-    "url": "https://example.com",
+    "url": "https://…/rpm/#/…/connect?type=video&status=waitingroom&showCQ=true",
     "success": true,
     "openInBrowser": true
   }
 }
 ```
 
-| Field | Behavior |
-|-------|----------|
-| `success: false` | Show error toast; do nothing else |
-| `openInBrowser: true` | Open `url` in the system browser, then close WebView → home |
-| `openInBrowser: false` | Load `url` inside the same WebView |
+| Field | Description |
+|-------|-------------|
+| `url` | Full waiting-room connect URL |
+| `success` | `false` → error toast only |
+| `openInBrowser` | `true` → system browser, then close WebView → home. `false` → same WebView |
 
-#### Type `2` — Close WebView (return home)
+Also accepts `tel:` / `mailto:` / `sms:` (system app; WebView usually stays open).
 
-```json
-{
-  "type": 2,
-  "data": { "success": true }
-}
-```
+---
 
-or:
+### Type `2` — Close WebView (`SCHEDULE`)
 
 ```json
-{
-  "type": 2,
-  "data": { "close": true }
-}
+{ "type": 2, "data": { "success": true } }
 ```
 
-If `success` **or** `close` is `true`, the WebView closes and the app returns to the home screen.
+or `{ "close": true }`. If either flag is true, close WebView → home.
 
-#### Type `3` — Open schedule link
+---
+
+### Type `3` — Open schedule link (`OPEN_SCHEDULE_LINK`)
+
+Same open rules as type 1 (browser vs WebView, then home when opening browser).
 
 ```json
 {
@@ -307,13 +408,13 @@ If `success` **or** `close` is `true`, the WebView closes and the app returns to
 }
 ```
 
-Same rules as type `1` (browser vs WebView, then return home when opening the browser).
+---
 
-#### Type `4` — Open native image picker **(new)**
+### Type `4` — Native photo picker (`OPEN_NATIVE_IMAGE_PICKER`)
 
-Use this when the URL has `openPickerInNative=true`. Do **not** open `<input type="file">`.
+Use when `openPickerInNative=true`. Do **not** open `<input type="file">`.
 
-**Web → native (send):**
+**Send:**
 
 ```json
 {
@@ -326,21 +427,13 @@ Use this when the URL has `openPickerInNative=true`. Do **not** open `<input typ
 }
 ```
 
-| Field | Required | Behavior |
-|-------|----------|----------|
-| `accept` | no | Logged only; native always picks images |
-| `source` | no | Logged only; native always shows **Take Photo** and **Photo Library** |
-| `multiple` | no | `true` allows more than one library photo. Camera always returns one file |
+| Field | Required | Description |
+|-------|----------|-------------|
+| `accept` | no | Logged; native always picks images |
+| `source` | no | Logged; shows **Take Photo** + **Photo Library** |
+| `multiple` | no | `true` allows multiple library photos; camera = one file |
 
-Native presents a chooser: **Take Photo** (camera) or **Photo Library**. Cancel on the sheet, camera, or library returns a cancelled payload.
-
-**Native → web (receive):**
-
-Native calls a global function. The argument is a **JSON string** (not an object):
-
-```javascript
-window.onNativeImagePicked(jsonString)
-```
+**Receive:** `window.onNativeImagePicked(jsonString)`
 
 Success:
 
@@ -358,88 +451,48 @@ Success:
 }
 ```
 
-Cancel / no file:
+Cancel: `{ "cancelled": true, "success": false, "files": [] }`
 
-```json
-{
-  "cancelled": true,
-  "success": false,
-  "files": []
-}
-```
+| Result field | Description |
+|--------------|-------------|
+| `cancelled` | User dismissed the picker |
+| `success` | At least one usable file when `true` |
+| `files[].mimeType` | e.g. `image/jpeg` |
+| `files[].fileName` | Display / upload name |
+| `files[].dataUrl` | Base64 data URL |
 
-Web should register the handler **before** sending type 4:
+---
 
-```javascript
-window.onNativeImagePicked = function (jsonString) {
-  var result = typeof jsonString === "string" ? JSON.parse(jsonString) : jsonString;
-  if (!result.success || result.cancelled || !result.files || !result.files.length) {
-    return; // user cancelled
-  }
-  var files = result.files.map(function (item) {
-    var comma = item.dataUrl.indexOf(",");
-    var b64 = item.dataUrl.slice(comma + 1);
-    var binary = atob(b64);
-    var bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return new File([bytes], item.fileName || "native-photo.jpg", {
-      type: item.mimeType || "image/jpeg"
-    });
-  });
-  // attach `files` to the same upload path as a normal file input
-};
+### Type `5` — Native video picker (`OPEN_NATIVE_VIDEO_PICKER`)
 
-sendToNative(4, { accept: "image/*", multiple: false });
-```
+Answers on `window.onNativeVideoPicked` only.
 
-Android and iOS use the same send/receive shape.
+| Chooser option | Source |
+|----------------|--------|
+| Record Video | Device camera (+ microphone) |
+| Video Library | Photos picker, videos only |
+| Choose File | Files picker, video types |
 
-#### Type `5` — Open native video picker **(new)**
-
-One video from the library. Native answers on `window.onNativeVideoPicked`, **not** `onNativeImagePicked`.
-
-**Web → native (send):**
+**Send:**
 
 ```json
 {
   "type": 5,
   "data": {
     "accept": "video/*",
-    "source": "photoLibrary",
+    "source": "camera-or-library",
     "multiple": false
   }
 }
 ```
 
-**Native → web (receive):**
+`multiple` ignored; always one video. Same `files[]` shape (`mimeType` e.g. `video/mp4`).
 
-```javascript
-window.onNativeVideoPicked(jsonString)
-```
+---
 
-Success:
+### Type `6` — Native document picker (`OPEN_NATIVE_FILE_PICKER`)
 
-```json
-{
-  "cancelled": false,
-  "success": true,
-  "files": [
-    {
-      "mimeType": "video/mp4",
-      "fileName": "native-video.mp4",
-      "dataUrl": "data:video/mp4;base64,AAAA..."
-    }
-  ]
-}
-```
-
-Cancel / no file: `{ "cancelled": true, "success": false, "files": [] }`
-
-#### Type `6` — Open native document picker **(new)**
-
-One file of any type (medical records). Native answers on `window.onNativeFilePicked`.
-
-**Web → native (send):**
+Medical records / any file → `window.onNativeFilePicked`.
 
 ```json
 {
@@ -452,35 +505,15 @@ One file of any type (medical records). Native answers on `window.onNativeFilePi
 }
 ```
 
-**Native → web (receive):**
+Same `files[]` shape (`mimeType` e.g. `application/pdf`).
 
-```javascript
-window.onNativeFilePicked(jsonString)
-```
+---
 
-Success:
+### Type `7` — Open a URL (`OPEN_EXTERNAL_LINK`)
 
-```json
-{
-  "cancelled": false,
-  "success": true,
-  "files": [
-    {
-      "mimeType": "application/pdf",
-      "fileName": "record.pdf",
-      "dataUrl": "data:application/pdf;base64,JVBERi0..."
-    }
-  ]
-}
-```
+Does **not** close the WebView (unlike types 1 / 3 for http browser opens).
 
-Cancel / no file: `{ "cancelled": true, "success": false, "files": [] }`
-
-#### Type `7` — Open a URL **(new)**
-
-Used by `openWindow` in the web app. Does **not** close the WebView (unlike types 1 and 3).
-
-**Web → native (send):**
+**http(s):**
 
 ```json
 {
@@ -494,14 +527,35 @@ Used by `openWindow` in the web app. Does **not** close the WebView (unlike type
 }
 ```
 
-| Field | Behavior |
-|-------|----------|
-| `target: "_blank"` or `openInBrowser: true` | Open `url` in the system browser; keep the WebView open |
-| `target: "_self"` | Load `url` inside the same WebView |
+**App schemes:**
 
-#### Type `8` — Current location **(new)**
+```json
+{ "type": 7, "data": { "url": "tel:911", "success": true } }
+```
 
-**Web → native (send):**
+```json
+{ "type": 7, "data": { "url": "mailto:support@example.com", "success": true } }
+```
+
+```json
+{ "type": 7, "data": { "url": "sms:+15555550100", "success": true } }
+```
+
+| Field / URL | Behavior |
+|-------------|----------|
+| `target: "_blank"` or `openInBrowser: true` | System browser; keep WebView open |
+| `target: "_self"` | Load inside same WebView |
+| `tel:` | System dialer (Call 911) |
+| `mailto:` | System mail |
+| `sms:` | System SMS |
+
+`tel:` / `mailto:` / `sms:` also work on types 1 and 3. Intercept in-page `<a href="tel:…">` the same way.
+
+---
+
+### Type `8` — Current location (`GET_NATIVE_LOCATION`)
+
+**Send:**
 
 ```json
 {
@@ -513,115 +567,62 @@ Used by `openWindow` in the web app. Does **not** close the WebView (unlike type
 }
 ```
 
-**Native → web (receive):**
+| Field | Description |
+|-------|-------------|
+| `enableHighAccuracy` | Prefer GPS when `true` |
+| `timeout` | ms before `code: 3` |
 
-```javascript
-window.onNativeLocation(jsonString)
-```
+**Receive:** `window.onNativeLocation(jsonString)`
 
-Granted:
+Granted: `{ "success": true, "latitude": 37.77, "longitude": -122.42 }`  
+Failed: `{ "success": false, "code": 1 }` (`1` denied, `2` unavailable, `3` timeout)
 
-```json
-{
-  "success": true,
-  "latitude": 37.77,
-  "longitude": -122.42
-}
-```
+---
 
-Denied / unavailable / timeout (`code` matches `GeolocationPositionError`):
-
-```json
-{
-  "success": false,
-  "code": 1
-}
-```
-
-| `code` | Meaning |
-|--------|---------|
-| `1` | Permission denied |
-| `2` | Position unavailable |
-| `3` | Timed out |
-
-### Why `@JavascriptInterface`?
-
-Only methods annotated with `@JavascriptInterface` are callable from JavaScript (API 17+). This limits exposure and avoids reflecting arbitrary native methods into the page.
-
-### How to use from any loaded page
+## Example: calling native from the page
 
 ```javascript
 function sendToNative(type, data) {
   if (window.NativeApp && window.NativeApp.callback) {
     window.NativeApp.callback(JSON.stringify({ type: type, data: data }));
+  } else if (typeof window.callNative === "function") {
+    window.callNative(type, data);
   } else {
     console.warn("Native bridge not available");
   }
 }
 
-// Close WebView → home
 sendToNative(2, { close: true });
-
-// Open link in mobile browser, then go home
-sendToNative(1, {
-  url: "https://example.com",
-  success: true,
-  openInBrowser: true
-});
-
-// Open native camera / photo library (type 4)
+sendToNative(1, { url: "https://example.com", success: true, openInBrowser: true });
 sendToNative(4, { accept: "image/*", multiple: false });
-
-// Open native video library (type 5)
-sendToNative(5, { accept: "video/*", source: "photoLibrary", multiple: false });
-
-// Open native document picker (type 6)
+sendToNative(5, { accept: "video/*", source: "camera-or-library", multiple: false });
 sendToNative(6, { accept: "*/*", source: "files", multiple: false });
-
-// Open a URL without closing the WebView (type 7)
-sendToNative(7, { url: "https://example.com", success: true, openInBrowser: true, target: "_blank" });
-
-// Current location (type 8)
+sendToNative(7, { url: "tel:911", success: true });
 sendToNative(8, { enableHighAccuracy: false, timeout: 30000 });
 ```
 
-Always check `window.NativeApp` so the same page can run in a normal browser without crashing.
+Always guard for `NativeApp` / `callNative` so the same page can run in a desktop browser.
 
 ### Security notes
 
-- Only expose a narrow callback API (types 1–8).
-- Validate URLs (`http` / `https` with a host) before opening.
-- Prefer loading trusted origins only.
-- Keep ProGuard rules for `@JavascriptInterface` methods if minify is enabled.
+- Only expose types 1–8.
+- Validate URLs (`http` / `https` with a host, or allowed app schemes) before opening.
+- Prefer trusted origins only.
+- Keep ProGuard rules for `@JavascriptInterface` if minify is enabled.
 
 ---
 
-## App flow (context)
+## App flow
 
 ```
-Launcher → Setup (first time) → Login → Home (3 buttons) → WebView
-                                      ↑______________________|
-                                         type 2 close / logout
+Launcher → Setup (first time) → Login → Home → WebView
+                                      ↑___________|
+                                   type 2 close / logout
 ```
 
-- **Setup:** subdomain + folder (defaults `mhc` / `apps2`), saved in SharedPreferences  
-- **Login:** ValidateLogin → Profile → stores `userID`, `clinicID`, `languageId`, `oemID`  
-- **Home:** builds the three URLs above and opens `WebViewActivity`  
+- **v2 home:** Visit Doctor / Schedule Visit / Schedules List  
+- **visit-doctor home:** Visit Doctor + Logout (+ optional checkboxes)  
 - **Logout:** clears session only; config remains  
-
----
-
-## Key files
-
-| File | Purpose |
-|------|---------|
-| `AppDestinations.kt` | Constructs the three WebView URLs |
-| `BrowserBridge.kt` | Native bridge (`NativeApp.callback`) types 1–8 |
-| `WebViewActivity.kt` | Full-screen WebView host + native camera / photo / video / file pickers |
-| `NativeLocationHelper.kt` | Type 8 location (`window.onNativeLocation`) |
-| `MainActivity.kt` | Home buttons that open each URL |
-| `data/AppPreferences.kt` | Cached config + session |
-| `network/GenieMdApi.kt` | Login + profile APIs |
 
 ---
 
@@ -631,8 +632,4 @@ Filter tag: **`WebViewBridge`**
 
 Useful messages: URL loads, bridge callbacks, browser launch, permission / file-chooser events.
 
-
-
-for forwading local link
-adb reverse tcp:4200 tcp:4200
-adb reverse tcp:4201 tcp:4201
+iOS mirror: [`../ios/README.md`](../ios/README.md) (`fromWebView=ios`).

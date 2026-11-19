@@ -2,41 +2,39 @@
 
 SwiftUI + WKWebView host that mirrors the Android app (`fromWebView=ios`).
 
+Full Android detail (both branches + bridge payloads):  
+[`../WebViewBrowserBridge/README.md`](../WebViewBrowserBridge/README.md)
+
 ## Run
 
 1. Install **Xcode**
-2. From the repo root, open `ios/WebBridge.xcodeproj`
-3. Select an iPhone simulator or a signed device
-4. Set your Development Team in Signing & Capabilities
+2. Open `ios/WebBridge.xcodeproj` from the repo root
+3. Select simulator or signed device
+4. Set Development Team in Signing & Capabilities
 5. Run (⌘R)
 
-Flow: Splash → Setup (subdomain + folder) → Login → Home → WebView.
+Flow: Splash → Setup → Login → Home → WebView.
 
-Home has a **Live ⇄ Local** toggle in DEBUG builds only. Release always uses live hosts.
-
-Home also has a **Legacy WebView** toggle to reproduce the photo-picker hang vs the current `BridgeWebView`.
+DEBUG: **Live ⇄ Local** toggle. Release always uses live hosts.  
+**Legacy WebView** toggle reproduces the photo-picker hang vs current `BridgeWebView`.
 
 ---
 
-## New query params
+## Shared links by native branch
 
-Same flags as Android. Only `fromWebView` differs (`ios` vs `android`).
+| Branch | Home links | Notes |
+|--------|------------|-------|
+| `v2-splash-login-page` | Visit Doctor, Schedule Visit, **Schedules List** (`patient-schedule`) | Full params including `protocolName`, `forWR`, `showCQ`, `disableCamera` |
+| `visit-doctor-optional-params` | Visit Doctor only | Minimal always-on params; optional checkboxes; no `protocolName` / `forWR` / `showCQ` / `disableCamera` by default |
 
-| Param | Value | Visit Doctor Now | Schedule Visit Now | Schedules List |
-|-------|-------|------------------|--------------------|----------------|
-| `disableCamera` | `true` | yes | yes | no |
-| `forWR` | `true` | yes | no | no |
-| **`showCQ`** **(new)** | `true` | yes | no | no |
-| **`openPickerInNative`** **(new)** | `true` | yes | yes | no |
+Only `fromWebView` differs (`ios` vs `android`).
 
-`openPickerInNative=true` tells the web app **not** to open `<input type="file">`. Use native types 4 / 5 / 6 instead.
+### Branch A — `v2-splash-login-page`
 
-`showCQ=true` (show Connect Queue) is Visit Doctor only. PTX forwards it so RMX shows the connect queue page (“Connecting to a Doctor”).
-
-### Visit Doctor Now
+#### Visit Doctor Now
 
 ```
-https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
+{assessmentBase}/#/protocol/{clinicID}/consent/{userID}
   ?patientLanguageID={languageId}
   &patientOEMID={oemID}
   &protocolName=Revamp%20TeleConsultation
@@ -44,15 +42,15 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &fromWebView=ios
   &ignoreLocationCheck=true
   &disableCamera=true
+  &openPickerInNative=true
   &forWR=true
-  &showCQ=true                 # NEW — show RMX connect queue page
-  &openPickerInNative=true     # NEW — native photo / video / file pickers
+  &showCQ=true
 ```
 
-### Schedule Visit Now
+#### Schedule Visit Now
 
 ```
-https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consent/{userID}
+{assessmentBase}/#/protocol/{clinicID}/consent/{userID}
   ?patientLanguageID={languageId}
   &patientOEMID={oemID}
   &protocolName=Revamp%20Scheudle%20a%20TeleConsultation
@@ -60,125 +58,92 @@ https://{subdomain}.geniemd.net/{folder}/assessment/#/protocol/{clinicID}/consen
   &fromWebView=ios
   &ignoreLocationCheck=true
   &disableCamera=true
-  &openPickerInNative=true     # NEW — native photo / video / file pickers
+  &openPickerInNative=true
 ```
 
-### Schedules List
+#### Schedules List (`patient-schedule`) — extra RPM link
 
 ```
-https://{subdomain}.geniemd.net/{folder}/rpm/#/webview/{clinicID}/{userID}/patient-schedule
+{rpmBase}/#/webview/{clinicID}/{userID}/patient-schedule
   ?fromWebView=ios
 ```
 
-No new query params.
+Only query param: `fromWebView`. Live base: `https://{subdomain}.geniemd.net/{folder}/rpm`. Local: `http://localhost:4200/rpm`.
+
+| Param | Visit Doctor | Schedule Visit | Schedules List |
+|-------|--------------|----------------|----------------|
+| `protocolName` | yes | yes | no |
+| `dependent` | yes | yes | no |
+| `fromWebView` | yes | yes | yes |
+| `ignoreLocationCheck` | yes | yes | no |
+| `disableCamera` | yes | yes | no |
+| `openPickerInNative` | yes | yes | no |
+| `forWR` / `showCQ` | yes | no | no |
+
+### Branch B — `visit-doctor-optional-params`
+
+Always:
+
+```
+…/consent/{userID}?patientLanguageID=…&patientOEMID=…&fromWebView=ios&openPickerInNative=true
+```
+
+Optional checkboxes: `dependent=true`, `ignoreLocationCheck=true`.  
+Multi-clinic: path = selected clinic + `multiClinic=true&masterClinic={profileClinicID}`.  
+Not added: `protocolName`, `disableCamera`, `forWR`, `showCQ`.  
+No Schedule Visit / Schedules List on this branch home.
+
+`showCQ=true` (v2 Visit Doctor) → PTX forwards so RMX shows the connect queue page.
 
 ---
 
 ## Native bridge (types 1–8)
 
-Same contract as Android. Web calls `NativeApp.callback(...)` or `window.callNative(type, data)`.
+Same contract as Android. Web: `NativeApp.callback(...)` or `window.callNative(type, data)`.
 
 Must match PTX `bridge-action.constant.ts`.
 
 | type | Meaning | Web → native | Native → web |
 |------|---------|--------------|--------------|
-| 1 | Waiting room | `{ url, success, openInBrowser }` | — (opens browser then closes WebView) |
+| 1 | Waiting room | `{ url, success, openInBrowser }` | — |
 | 2 | Close WebView | `{ success, close }` | — |
-| 3 | Open schedule link | `{ url, success, openInBrowser }` | — (same as type 1) |
+| 3 | Open schedule link | `{ url, success, openInBrowser }` | — |
 | 4 | Photo picker | `{ accept: "image/*", source, multiple }` | `window.onNativeImagePicked` |
-| **5** **(new)** | Video picker | `{ accept: "video/*", source: "photoLibrary", multiple: false }` | `window.onNativeVideoPicked` |
-| **6** **(new)** | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
-| **7** **(new)** | Open a URL | `{ url, success, openInBrowser, target }` | — (`_blank` = Safari, `_self` = same WebView; does **not** close) |
-| **8** **(new)** | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
+| 5 | Video picker | `{ accept: "video/*", source, multiple: false }` | `window.onNativeVideoPicked` |
+| 6 | Document picker | `{ accept: "*/*", source: "files", multiple: false }` | `window.onNativeFilePicked` |
+| 7 | Open a URL | `{ url, success, openInBrowser, target }` — http(s) or `tel:` / `mailto:` / `sms:` | — (does not close) |
+| 8 | Current location | `{ enableHighAccuracy, timeout }` | `window.onNativeLocation` |
 
-Types 4, 5, and 6 are separate. Do not answer a video or document request on `onNativeImagePicked`.
-
-Native always calls the page with a **JSON string**:
-
-```javascript
-window.onNativeImagePicked(JSON.stringify({ ... }))
-window.onNativeVideoPicked(JSON.stringify({ ... }))
-window.onNativeFilePicked(JSON.stringify({ ... }))
-window.onNativeLocation(JSON.stringify({ ... }))
-```
+Types 4–6 are separate. Callbacks are **JSON strings**.
 
 ### Type 4 — Photo
 
-**Send:**
-
 ```json
-{ "type": 4, "data": { "accept": "image/*", "source": "photoLibrary", "multiple": false } }
+{ "type": 4, "data": { "accept": "image/*", "source": "camera-or-library", "multiple": false } }
 ```
 
-`multiple: true` allows more than one library photo. Camera always returns one file.
-
-**Receive** (`window.onNativeImagePicked`):
-
-```json
-{
-  "cancelled": false,
-  "success": true,
-  "files": [
-    {
-      "mimeType": "image/jpeg",
-      "fileName": "native-photo.jpg",
-      "dataUrl": "data:image/jpeg;base64,/9j/4AAQ..."
-    }
-  ]
-}
-```
-
+Success: `{ "cancelled": false, "success": true, "files": [{ "mimeType", "fileName", "dataUrl" }] }`  
 Cancel: `{ "cancelled": true, "success": false, "files": [] }`
 
-### Type 5 — Video **(new)**
+### Type 5 — Video
 
-**Send:**
-
-```json
-{ "type": 5, "data": { "accept": "video/*", "source": "photoLibrary", "multiple": false } }
-```
-
-**Receive** (`window.onNativeVideoPicked`):
+Chooser: Record Video / Video Library / Choose File.
 
 ```json
-{
-  "cancelled": false,
-  "success": true,
-  "files": [
-    {
-      "mimeType": "video/mp4",
-      "fileName": "native-video.mp4",
-      "dataUrl": "data:video/mp4;base64,AAAA..."
-    }
-  ]
-}
+{ "type": 5, "data": { "accept": "video/*", "source": "camera-or-library", "multiple": false } }
 ```
 
-### Type 6 — Document **(new)**
+→ `window.onNativeVideoPicked`
 
-**Send:**
+### Type 6 — Document
 
 ```json
 { "type": 6, "data": { "accept": "*/*", "source": "files", "multiple": false } }
 ```
 
-**Receive** (`window.onNativeFilePicked`):
+→ `window.onNativeFilePicked`
 
-```json
-{
-  "cancelled": false,
-  "success": true,
-  "files": [
-    {
-      "mimeType": "application/pdf",
-      "fileName": "record.pdf",
-      "dataUrl": "data:application/pdf;base64,JVBERi0..."
-    }
-  ]
-}
-```
-
-### Type 7 — Open a URL **(new)**
+### Type 7 — Open a URL
 
 Does **not** close the WebView.
 
@@ -186,35 +151,27 @@ Does **not** close the WebView.
 { "type": 7, "data": { "url": "https://example.com", "success": true, "openInBrowser": true, "target": "_blank" } }
 ```
 
-- `target: "_blank"` or `openInBrowser: true` → open in Safari
-- `target: "_self"` → load inside the same WebView
+```json
+{ "type": 7, "data": { "url": "tel:911", "success": true } }
+```
 
-### Type 8 — Location **(new)**
+- `_blank` / `openInBrowser: true` → Safari  
+- `_self` → same WebView  
+- `tel:` / `mailto:` / `sms:` → system apps
 
-**Send:**
+### Type 8 — Location
 
 ```json
 { "type": 8, "data": { "enableHighAccuracy": false, "timeout": 30000 } }
 ```
 
-**Receive** (`window.onNativeLocation`):
+Granted: `{ "success": true, "latitude", "longitude" }`  
+Failed: `{ "success": false, "code": 1|2|3 }`
 
-Granted: `{ "success": true, "latitude": 37.77, "longitude": -122.42 }`
-
-Failed: `{ "success": false, "code": 1 }`
-
-| `code` | Meaning |
-|--------|---------|
-| `1` | Permission denied |
-| `2` | Position unavailable |
-| `3` | Timed out |
-
-Register the matching `window.onNative*` handler **before** sending the type. Parse the JSON string, convert each picker `dataUrl` to a `File`, and upload as usual.
-
-See `WebViewBrowserBridge/README.md` for types 1–3 and a full JS helper example.
+Register `window.onNative*` **before** sending. See Android README for types 1–3 and full JS helper.
 
 ---
 
 ## Native logs
 
-Filter Xcode console for **`[WebViewBridge]`**. Type 1 (waiting room), type 3 (schedule link), and type 7 print the received URL.
+Filter Xcode console for **`[WebViewBridge]`**.
