@@ -15,6 +15,20 @@ Full Android detail (both branches + bridge payloads):
 
 Flow: Splash → Setup → Login → Home → WebView.
 
+### Setup folders
+
+| Field | Required | Default |
+|-------|----------|---------|
+| Subdomain | yes | `mhc` |
+| **Folder 1** | yes | `apps1` |
+| **Folder 2** | optional | `apps2` (clear to disable) |
+
+If **both** Folder 1 and Folder 2 are saved, Home shows a switch:
+
+`apps1` ⇄ `apps2`
+
+Same pattern as **Live ⇄ Local**. WebView URLs use the selected folder.
+
 DEBUG: **Live ⇄ Local** toggle. Release always uses live hosts.  
 **Legacy WebView** toggle reproduces the photo-picker hang vs current `BridgeWebView`.
 

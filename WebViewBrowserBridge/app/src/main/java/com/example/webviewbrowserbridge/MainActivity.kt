@@ -9,6 +9,7 @@ import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import com.example.webviewbrowserbridge.data.AppConfig
 import com.example.webviewbrowserbridge.data.AppPreferences
 import com.google.android.material.switchmaterial.SwitchMaterial
 
@@ -50,46 +51,80 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.home_welcome, profile.displayName)
 
         val txtDomainInfo = findViewById<TextView>(R.id.txtDomainInfo)
+        val folderModeRow = findViewById<View>(R.id.folderModeRow)
+        val switchFolder = findViewById<SwitchMaterial>(R.id.switchFolder)
+        val txtFolder1Label = findViewById<TextView>(R.id.txtFolder1Label)
+        val txtFolder2Label = findViewById<TextView>(R.id.txtFolder2Label)
         val localModeRow = findViewById<View>(R.id.localModeRow)
         val switchLocal = findViewById<SwitchMaterial>(R.id.switchLocal)
         val localEnabled = AppDestinations.isLocalHostEnabled
 
-        fun refreshHostLabel(useLocal: Boolean) {
-            txtDomainInfo.text = if (useLocal) {
+        fun activeConfig(): AppConfig =
+            config.withActiveFolder(switchFolder.isChecked && config.hasFolder2)
+
+        fun refreshHostLabel() {
+            txtDomainInfo.text = if (localEnabled && switchLocal.isChecked) {
                 getString(R.string.home_local_info)
             } else {
-                config.environmentUrl
+                activeConfig().environmentUrl
             }
+        }
+
+        if (config.hasFolder2) {
+            folderModeRow.visibility = View.VISIBLE
+            txtFolder1Label.text = config.folder
+            txtFolder2Label.text = config.folder2
+            switchFolder.isChecked = prefs.isUsingFolder2()
+            switchFolder.setOnCheckedChangeListener { _, checked ->
+                prefs.setUsingFolder2(checked)
+                refreshHostLabel()
+            }
+        } else {
+            folderModeRow.visibility = View.GONE
+            switchFolder.isChecked = false
+            prefs.setUsingFolder2(false)
         }
 
         if (localEnabled) {
             localModeRow.visibility = View.VISIBLE
             switchLocal.isChecked = prefs.isLocalMode()
-            refreshHostLabel(switchLocal.isChecked)
             switchLocal.setOnCheckedChangeListener { _, checked ->
                 prefs.setLocalMode(checked)
-                refreshHostLabel(checked)
+                refreshHostLabel()
             }
         } else {
             localModeRow.visibility = View.GONE
             switchLocal.isChecked = false
-            refreshHostLabel(false)
         }
 
+        refreshHostLabel()
+
         findViewById<Button>(R.id.btnVisitDoctor).setOnClickListener {
-            val url = AppDestinations.visitDoctorUrl(config, profile, switchLocal.isChecked)
+            val url = AppDestinations.visitDoctorUrl(
+                activeConfig(),
+                profile,
+                switchLocal.isChecked
+            )
             Log.d(TAG, "Visit Doctor URL: $url")
             openWebView(url)
         }
 
         findViewById<Button>(R.id.btnScheduleVisit).setOnClickListener {
-            val url = AppDestinations.scheduleVisitUrl(config, profile, switchLocal.isChecked)
+            val url = AppDestinations.scheduleVisitUrl(
+                activeConfig(),
+                profile,
+                switchLocal.isChecked
+            )
             Log.d(TAG, "Schedule Visit URL: $url")
             openWebView(url)
         }
 
         findViewById<Button>(R.id.btnSchedulesList).setOnClickListener {
-            val url = AppDestinations.schedulesListUrl(config, profile, switchLocal.isChecked)
+            val url = AppDestinations.schedulesListUrl(
+                activeConfig(),
+                profile,
+                switchLocal.isChecked
+            )
             Log.d(TAG, "Schedules List URL: $url")
             openWebView(url)
         }

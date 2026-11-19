@@ -12,7 +12,8 @@ import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 
 /**
- * First-launch screen: subdomain + folder. Saved to app cache permanently until cleared.
+ * First-launch screen: subdomain + folder 1 (+ optional folder 2).
+ * Saved to app cache permanently until cleared.
  */
 class SetupActivity : AppCompatActivity() {
 
@@ -26,21 +27,28 @@ class SetupActivity : AppCompatActivity() {
 
         val inputSubdomain = findViewById<TextInputEditText>(R.id.inputSubdomain)
         val inputFolder = findViewById<TextInputEditText>(R.id.inputFolder)
+        val inputFolder2 = findViewById<TextInputEditText>(R.id.inputFolder2)
 
         // Defaults on first open
         inputSubdomain.setText(getString(R.string.default_subdomain))
         inputFolder.setText(getString(R.string.default_folder))
+        inputFolder2.setText(getString(R.string.default_folder_2))
 
         findViewById<MaterialButton>(R.id.btnSaveConfig).setOnClickListener {
             val subdomain = inputSubdomain.text?.toString()?.trim().orEmpty()
             val folder = inputFolder.text?.toString()?.trim().orEmpty()
+            val folder2 = inputFolder2.text?.toString()?.trim().orEmpty()
 
             if (subdomain.isBlank() || folder.isBlank()) {
                 Toast.makeText(this, R.string.setup_validation_error, Toast.LENGTH_SHORT).show()
                 return@setOnClickListener
             }
 
-            prefs.saveConfig(subdomain = subdomain, folder = folder)
+            prefs.saveConfig(
+                subdomain = subdomain,
+                folder = folder,
+                folder2 = folder2.takeIf { it.isNotBlank() }
+            )
             Toast.makeText(this, R.string.setup_saved, Toast.LENGTH_SHORT).show()
 
             startActivity(Intent(this, LoginActivity::class.java))

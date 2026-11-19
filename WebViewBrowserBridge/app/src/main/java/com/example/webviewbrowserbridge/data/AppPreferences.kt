@@ -16,14 +16,23 @@ class AppPreferences(context: Context) {
     fun getConfig(): AppConfig? {
         val subdomain = prefs.getString(KEY_SUBDOMAIN, null) ?: return null
         val folder = prefs.getString(KEY_FOLDER, null) ?: return null
-        return AppConfig(subdomain = subdomain, folder = folder)
+        val folder2 = prefs.getString(KEY_FOLDER_2, null)?.takeIf { it.isNotBlank() }
+        return AppConfig(subdomain = subdomain, folder = folder, folder2 = folder2)
     }
 
-    fun saveConfig(subdomain: String, folder: String) {
-        prefs.edit()
+    fun saveConfig(subdomain: String, folder: String, folder2: String? = null) {
+        val editor = prefs.edit()
             .putString(KEY_SUBDOMAIN, subdomain.trim())
             .putString(KEY_FOLDER, folder.trim())
-            .apply()
+
+        val secondary = folder2?.trim().orEmpty()
+        if (secondary.isBlank()) {
+            editor.remove(KEY_FOLDER_2)
+            editor.putBoolean(KEY_USE_FOLDER_2, false)
+        } else {
+            editor.putString(KEY_FOLDER_2, secondary)
+        }
+        editor.apply()
     }
 
     fun isLoggedIn(): Boolean =
@@ -81,6 +90,13 @@ class AppPreferences(context: Context) {
         prefs.edit().putBoolean(KEY_LOCAL_MODE, enabled).apply()
     }
 
+    /** When true and folder2 is set, WebView URLs use folder2. */
+    fun isUsingFolder2(): Boolean = prefs.getBoolean(KEY_USE_FOLDER_2, false)
+
+    fun setUsingFolder2(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_USE_FOLDER_2, enabled).apply()
+    }
+
     fun clearAll() {
         prefs.edit().clear().apply()
     }
@@ -90,6 +106,8 @@ class AppPreferences(context: Context) {
 
         private const val KEY_SUBDOMAIN = "subdomain"
         private const val KEY_FOLDER = "folder"
+        private const val KEY_FOLDER_2 = "folder_2"
+        private const val KEY_USE_FOLDER_2 = "use_folder_2"
         private const val KEY_LOCAL_MODE = "local_mode"
         private const val KEY_TOKEN = "token"
         private const val KEY_USER_ID = "user_id"

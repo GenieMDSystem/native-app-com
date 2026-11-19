@@ -11,5 +11,6 @@ enum AppTheme {
 
 enum AppDefaults {
     static let subdomain = "mhc"
-    static let folder = "apps2"
+    static let folder = "apps1"
+    static let folder2 = "apps2"
 }

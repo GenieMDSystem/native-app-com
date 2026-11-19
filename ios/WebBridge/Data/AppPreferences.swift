@@ -5,11 +5,12 @@ final class AppPreferences {
     static let shared = AppPreferences()
 
     private let defaults: UserDefaults
-    private let suiteName = "webview_bridge_cache"
 
     private enum Key {
         static let subdomain = "subdomain"
         static let folder = "folder"
+        static let folder2 = "folder_2"
+        static let useFolder2 = "use_folder_2"
         static let token = "token"
         static let userID = "user_id"
         static let clinicID = "clinic_id"
@@ -33,12 +34,25 @@ final class AppPreferences {
             let subdomain = defaults.string(forKey: Key.subdomain),
             let folder = defaults.string(forKey: Key.folder)
         else { return nil }
-        return AppConfig(subdomain: subdomain, folder: folder)
+        let folder2 = defaults.string(forKey: Key.folder2)?
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return AppConfig(
+            subdomain: subdomain,
+            folder: folder,
+            folder2: (folder2?.isEmpty == false) ? folder2 : nil
+        )
     }
 
-    func saveConfig(subdomain: String, folder: String) {
+    func saveConfig(subdomain: String, folder: String, folder2: String? = nil) {
         defaults.set(subdomain.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.subdomain)
         defaults.set(folder.trimmingCharacters(in: .whitespacesAndNewlines), forKey: Key.folder)
+        let secondary = folder2?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if secondary.isEmpty {
+            defaults.removeObject(forKey: Key.folder2)
+            defaults.set(false, forKey: Key.useFolder2)
+        } else {
+            defaults.set(secondary, forKey: Key.folder2)
+        }
     }
 
     var isLoggedIn: Bool {
@@ -56,7 +70,6 @@ final class AppPreferences {
 
         let languageId = defaults.integer(forKey: Key.languageId)
         let oemID = defaults.integer(forKey: Key.oemID)
-        // UserDefaults.integer returns 0 when missing; store a sentinel for "unset"
         guard defaults.object(forKey: Key.languageId) != nil,
               defaults.object(forKey: Key.oemID) != nil,
               languageId >= 0,
@@ -101,10 +114,17 @@ final class AppPreferences {
         set { defaults.set(newValue, forKey: Key.localMode) }
     }
 
+    /// When true and folder2 is set, WebView URLs use folder2.
+    var isUsingFolder2: Bool {
+        get { defaults.bool(forKey: Key.useFolder2) }
+        set { defaults.set(newValue, forKey: Key.useFolder2) }
+    }
+
     func clearAll() {
         [
-            Key.subdomain, Key.folder, Key.token, Key.userID,
-            Key.clinicID, Key.languageId, Key.oemID, Key.displayName
+            Key.subdomain, Key.folder, Key.folder2, Key.useFolder2,
+            Key.token, Key.userID, Key.clinicID, Key.languageId,
+            Key.oemID, Key.displayName, Key.localMode
         ].forEach { defaults.removeObject(forKey: $0) }
     }
 }

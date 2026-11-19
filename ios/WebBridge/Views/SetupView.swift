@@ -5,6 +5,7 @@ struct SetupView: View {
 
     @State private var subdomain = AppDefaults.subdomain
     @State private var folder = AppDefaults.folder
+    @State private var folder2 = AppDefaults.folder2
 
     var body: some View {
         ScrollView {
@@ -43,10 +44,10 @@ struct SetupView: View {
                 .padding(.bottom, 16)
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Folder")
+                    Text("Folder 1")
                         .font(.subheadline.weight(.medium))
                         .foregroundStyle(AppTheme.title)
-                    TextField("apps2", text: $folder)
+                    TextField("apps1", text: $folder)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .padding(14)
@@ -56,7 +57,27 @@ struct SetupView: View {
                             RoundedRectangle(cornerRadius: 10)
                                 .stroke(Color.black.opacity(0.08), lineWidth: 1)
                         )
-                    Text("e.g. apps, apps2")
+                    Text("Required. e.g. apps1")
+                        .font(.caption)
+                        .foregroundStyle(AppTheme.subtitle)
+                }
+                .padding(.bottom, 16)
+
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Folder 2 (optional)")
+                        .font(.subheadline.weight(.medium))
+                        .foregroundStyle(AppTheme.title)
+                    TextField("apps2", text: $folder2)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .padding(14)
+                        .background(Color.white)
+                        .clipShape(RoundedRectangle(cornerRadius: 10))
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 10)
+                                .stroke(Color.black.opacity(0.08), lineWidth: 1)
+                        )
+                    Text("Optional. If set, Home shows a Folder 1 ⇄ Folder 2 switch")
                         .font(.caption)
                         .foregroundStyle(AppTheme.subtitle)
                 }
@@ -65,11 +86,16 @@ struct SetupView: View {
                 Button {
                     let sub = subdomain.trimmingCharacters(in: .whitespacesAndNewlines)
                     let fold = folder.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let fold2 = folder2.trimmingCharacters(in: .whitespacesAndNewlines)
                     guard !sub.isEmpty, !fold.isEmpty else {
-                        appState.showToast("Subdomain and folder are required")
+                        appState.showToast("Subdomain and Folder 1 are required")
                         return
                     }
-                    appState.saveSetup(subdomain: sub, folder: fold)
+                    appState.saveSetup(
+                        subdomain: sub,
+                        folder: fold,
+                        folder2: fold2.isEmpty ? nil : fold2
+                    )
                 } label: {
                     Text("Save & Continue")
                         .font(.system(size: 17, weight: .semibold))

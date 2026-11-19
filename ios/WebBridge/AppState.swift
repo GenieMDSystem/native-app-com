@@ -32,6 +32,13 @@ final class AppState {
         }
     }
 
+    /// When true and folder2 is configured, WebView URLs use folder2.
+    var useFolder2: Bool {
+        didSet {
+            prefs.isUsingFolder2 = useFolder2
+        }
+    }
+
     private let prefs: AppPreferences
     private let api: GenieMdApi
 
@@ -42,6 +49,7 @@ final class AppState {
         self.session = prefs.getSession()
         self.useLegacyWebView = UserDefaults.standard.bool(forKey: "use_legacy_webview")
         self.useLocalWebHost = AppDestinations.isLocalHostEnabled && prefs.isLocalMode
+        self.useFolder2 = (prefs.getConfig()?.hasFolder2 == true) && prefs.isUsingFolder2
     }
 
     @MainActor
@@ -61,11 +69,20 @@ final class AppState {
         }
     }
 
-    func saveSetup(subdomain: String, folder: String) {
-        prefs.saveConfig(subdomain: subdomain, folder: folder)
+    func saveSetup(subdomain: String, folder: String, folder2: String? = nil) {
+        prefs.saveConfig(subdomain: subdomain, folder: folder, folder2: folder2)
         config = prefs.getConfig()
+        if config?.hasFolder2 != true {
+            useFolder2 = false
+        }
         showToast("Environment saved")
         route = .login
+    }
+
+    /// Config with the Home folder switch applied.
+    var activeConfig: AppConfig? {
+        guard let config else { return nil }
+        return config.withActiveFolder(useFolder2: useFolder2 && config.hasFolder2)
     }
 
     @MainActor

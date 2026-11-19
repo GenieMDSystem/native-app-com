@@ -13,9 +13,7 @@ struct HomeView: View {
                     .padding(.top, 32)
                     .padding(.bottom, 4)
 
-                Text(appState.useLocalWebHost && AppDestinations.isLocalHostEnabled
-                     ? "Local: localhost:4201 (visit) · localhost:4200/rpm (schedules)"
-                     : (appState.config?.environmentUrl ?? ""))
+                Text(hostLabel)
                     .font(.system(size: 13))
                     .foregroundStyle(AppTheme.subtitle)
                     .multilineTextAlignment(.center)
@@ -26,6 +24,21 @@ struct HomeView: View {
                     .foregroundStyle(AppTheme.subtitle)
                     .multilineTextAlignment(.center)
                     .padding(.bottom, 16)
+
+                if let config = appState.config, config.hasFolder2 {
+                    HStack(spacing: 12) {
+                        Text(config.folder)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(appState.useFolder2 ? AppTheme.subtitle : AppTheme.title)
+                        Toggle("Folder switch", isOn: $appState.useFolder2)
+                            .labelsHidden()
+                            .tint(AppTheme.primary)
+                        Text(config.folder2 ?? "")
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(appState.useFolder2 ? AppTheme.title : AppTheme.subtitle)
+                    }
+                    .padding(.bottom, 16)
+                }
 
                 if AppDestinations.isLocalHostEnabled {
                     HStack(spacing: 12) {
@@ -107,12 +120,19 @@ struct HomeView: View {
         .background(AppTheme.background.ignoresSafeArea())
     }
 
+    private var hostLabel: String {
+        if appState.useLocalWebHost && AppDestinations.isLocalHostEnabled {
+            return "Local: localhost:4201 (visit) · localhost:4200/rpm (schedules)"
+        }
+        return appState.activeConfig?.environmentUrl ?? appState.config?.environmentUrl ?? ""
+    }
+
     private enum Destination {
         case visitDoctor, scheduleVisit, schedulesList
     }
 
     private func open(_ destination: Destination) {
-        guard let config = appState.config, let profile = appState.session?.profile else { return }
+        guard let config = appState.activeConfig, let profile = appState.session?.profile else { return }
         let url: String
         switch destination {
         case .visitDoctor:

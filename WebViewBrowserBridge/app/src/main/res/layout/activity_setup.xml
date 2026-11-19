@@ -53,12 +53,27 @@
         <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp"
+            android:layout_marginBottom="16dp"
             android:hint="@string/setup_folder_label"
             app:helperText="@string/setup_folder_helper">
 
             <com.google.android.material.textfield.TextInputEditText
                 android:id="@+id/inputFolder"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="text"
+                android:maxLines="1" />
+        </com.google.android.material.textfield.TextInputLayout>
+
+        <com.google.android.material.textfield.TextInputLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:hint="@string/setup_folder_2_label"
+            app:helperText="@string/setup_folder_2_helper">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/inputFolder2"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:inputType="text"
