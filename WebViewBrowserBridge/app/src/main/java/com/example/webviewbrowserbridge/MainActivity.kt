@@ -106,7 +106,7 @@ class MainActivity : AppCompatActivity() {
                 switchLocal.isChecked
             )
             Log.d(TAG, "Visit Doctor URL: $url")
-            openWebView(url)
+            openWebView(url, showCloseButton = true)
         }
 
         findViewById<Button>(R.id.btnScheduleVisit).setOnClickListener {
@@ -116,7 +116,7 @@ class MainActivity : AppCompatActivity() {
                 switchLocal.isChecked
             )
             Log.d(TAG, "Schedule Visit URL: $url")
-            openWebView(url)
+            openWebView(url, showCloseButton = true)
         }
 
         findViewById<Button>(R.id.btnSchedulesList).setOnClickListener {
@@ -126,7 +126,7 @@ class MainActivity : AppCompatActivity() {
                 switchLocal.isChecked
             )
             Log.d(TAG, "Schedules List URL: $url")
-            openWebView(url)
+            openWebView(url, showCloseButton = false)
         }
 
         findViewById<Button>(R.id.btnLogout).setOnClickListener {
@@ -140,8 +140,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun openWebView(url: String) {
-        startActivity(WebViewActivity.createIntent(this, url))
+    private fun openWebView(url: String, showCloseButton: Boolean) {
+        startActivity(WebViewActivity.createIntent(this, url, showCloseButton))
     }
 
     private fun applySystemBarInsets() {

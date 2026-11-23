@@ -40,6 +40,7 @@
     <string name="btn_schedule_visit">Schedule Visit Now</string>
     <string name="btn_schedules_list">Schedules List</string>
     <string name="btn_logout">Logout</string>
+    <string name="webview_close">Close WebView</string>
     <string name="picker_title">Upload a photo</string>
     <string name="picker_take_photo">Take Photo</string>
     <string name="picker_photo_library">Photo Library</string>

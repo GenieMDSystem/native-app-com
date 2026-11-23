@@ -22,4 +22,19 @@
         android:progress="0"
         android:visibility="gone" />
 
+    <!-- Close → home (Visit Doctor / Schedule Visit) -->
+    <ImageButton
+        android:id="@+id/btnCloseWebView"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_gravity="top|end"
+        android:layout_marginTop="12dp"
+        android:layout_marginEnd="12dp"
+        android:background="@drawable/bg_close_button"
+        android:contentDescription="@string/webview_close"
+        android:padding="8dp"
+        android:src="@drawable/ic_close"
+        android:visibility="gone"
+        tools:visibility="visible" />
+
 </FrameLayout>

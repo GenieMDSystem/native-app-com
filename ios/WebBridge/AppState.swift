@@ -6,7 +6,7 @@ enum AppRoute: Equatable {
     case setup
     case login
     case home
-    case webView(url: String)
+    case webView(url: String, showCloseButton: Bool)
 }
 
 @Observable
@@ -101,8 +101,8 @@ final class AppState {
         route = .login
     }
 
-    func openWebView(url: String) {
-        route = .webView(url: url)
+    func openWebView(url: String, showCloseButton: Bool = false) {
+        route = .webView(url: url, showCloseButton: showCloseButton)
     }
 
     func closeWebView() {

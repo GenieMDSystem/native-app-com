@@ -14,8 +14,8 @@ struct ContentView: View {
                 LoginView(appState: appState)
             case .home:
                 HomeView(appState: appState)
-            case .webView(let url):
-                WebViewScreen(appState: appState, urlString: url)
+            case .webView(let url, let showClose):
+                WebViewScreen(appState: appState, urlString: url, showCloseButton: showClose)
             }
         }
         .animation(.easeInOut(duration: 0.25), value: routeKey)

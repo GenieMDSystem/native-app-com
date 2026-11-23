@@ -134,15 +134,19 @@ struct HomeView: View {
     private func open(_ destination: Destination) {
         guard let config = appState.activeConfig, let profile = appState.session?.profile else { return }
         let url: String
+        let showClose: Bool
         switch destination {
         case .visitDoctor:
             url = AppDestinations.visitDoctorUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
+            showClose = true
         case .scheduleVisit:
             url = AppDestinations.scheduleVisitUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
+            showClose = true
         case .schedulesList:
             url = AppDestinations.schedulesListUrl(config: config, profile: profile, useLocal: appState.useLocalWebHost)
+            showClose = false
         }
         print("[WebViewBridge] Opening: \(url)")
-        appState.openWebView(url: url)
+        appState.openWebView(url: url, showCloseButton: showClose)
     }
 }

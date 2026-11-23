@@ -22,6 +22,7 @@ import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.ImageButton
 import android.widget.ProgressBar
 import android.widget.Toast
 import androidx.activity.OnBackPressedCallback
@@ -51,6 +52,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
     companion object {
         private const val TAG = "WebViewBridge"
         private const val EXTRA_URL = "extra_url"
+        private const val EXTRA_SHOW_CLOSE = "extra_show_close"
         private const val MAX_PASS_THROUGH_BYTES = 1_500_000
         private const val MAX_BRIDGE_FILE_BYTES = 20_000_000
         private val PASS_THROUGH_MIMES = setOf(
@@ -60,15 +62,21 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
             "image/gif",
         )
 
-        fun createIntent(context: Context, url: String): Intent {
+        fun createIntent(
+            context: Context,
+            url: String,
+            showCloseButton: Boolean = false
+        ): Intent {
             return Intent(context, WebViewActivity::class.java).apply {
                 putExtra(EXTRA_URL, url)
+                putExtra(EXTRA_SHOW_CLOSE, showCloseButton)
             }
         }
     }
 
     private lateinit var webView: WebView
     private lateinit var progressBar: ProgressBar
+    private lateinit var btnCloseWebView: ImageButton
     private lateinit var permissionHelper: WebViewPermissionHelper
     private lateinit var fileChooserHelper: WebViewFileChooserHelper
     private lateinit var locationHelper: NativeLocationHelper
@@ -155,9 +163,21 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         setContentView(R.layout.activity_webview)
 
         val startUrl = intent.getStringExtra(EXTRA_URL).orEmpty()
+        val showClose = intent.getBooleanExtra(EXTRA_SHOW_CLOSE, false)
 
         webView = findViewById(R.id.webView)
         progressBar = findViewById(R.id.progressBar)
+        btnCloseWebView = findViewById(R.id.btnCloseWebView)
+
+        if (showClose) {
+            btnCloseWebView.visibility = View.VISIBLE
+            btnCloseWebView.setOnClickListener {
+                Log.d(TAG, "Close button tapped — returning home")
+                finish()
+            }
+        } else {
+            btnCloseWebView.visibility = View.GONE
+        }
 
         applySystemBarInsets()
         configureWebView()
@@ -168,7 +188,7 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         // Ask once when WebView opens so camera/mic/location work without extra taps
         permissionHelper.requestCommonPermissionsIfNeeded()
 
-        Log.d(TAG, "WebViewActivity loading: $startUrl")
+        Log.d(TAG, "WebViewActivity loading: $startUrl showClose=$showClose")
         webView.loadUrl(startUrl)
     }
 
@@ -486,6 +506,12 @@ class WebViewActivity : AppCompatActivity(), BridgeCallbackHost {
         ViewCompat.setOnApplyWindowInsetsListener(root) { view, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            // Keep the close button clear of the status bar
+            val params = btnCloseWebView.layoutParams as? android.widget.FrameLayout.LayoutParams
+            if (params != null) {
+                params.topMargin = bars.top + (12 * resources.displayMetrics.density).toInt()
+                btnCloseWebView.layoutParams = params
+            }
             insets
         }
     }

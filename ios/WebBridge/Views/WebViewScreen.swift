@@ -3,9 +3,10 @@ import SwiftUI
 struct WebViewScreen: View {
     @Bindable var appState: AppState
     let urlString: String
+    var showCloseButton: Bool = false
 
     var body: some View {
-        ZStack(alignment: .top) {
+        ZStack {
             if let url = URL(string: urlString) {
                 if appState.useLegacyWebView {
                     LegacyBridgeWebView(
@@ -13,14 +14,14 @@ struct WebViewScreen: View {
                         onClose: { appState.closeWebView() },
                         onMessage: { appState.showToast($0) }
                     )
-                    .ignoresSafeArea(edges: .bottom)
+                    .ignoresSafeArea()
                 } else {
                     BridgeWebView(
                         url: url,
                         onClose: { appState.closeWebView() },
                         onMessage: { appState.showToast($0) }
                     )
-                    .ignoresSafeArea(edges: .bottom)
+                    .ignoresSafeArea()
                 }
             } else {
                 ContentUnavailableView(
@@ -30,38 +31,23 @@ struct WebViewScreen: View {
                 )
             }
         }
-        .safeAreaInset(edge: .top, spacing: 0) {
-            HStack {
+        .overlay(alignment: .topTrailing) {
+            if showCloseButton {
                 Button {
                     appState.closeWebView()
                 } label: {
-                    Label("Done", systemImage: "xmark")
-                        .labelStyle(.iconOnly)
-                        .font(.body.weight(.semibold))
-                        .frame(width: 36, height: 36)
+                    Image(systemName: "xmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundStyle(.white)
+                        .frame(width: 40, height: 40)
+                        .background(
+                            Circle().fill(Color(red: 15 / 255, green: 23 / 255, blue: 42 / 255).opacity(0.8))
+                        )
                 }
-                .buttonStyle(.bordered)
-
-                Spacer()
-
-                VStack(spacing: 2) {
-                    Text(appState.useLegacyWebView ? "Legacy WebView" : "WebView")
-                        .font(.headline)
-                        .foregroundStyle(AppTheme.title)
-                    if appState.useLegacyWebView {
-                        Text("UIImagePicker + main-thread inject")
-                            .font(.caption2)
-                            .foregroundStyle(AppTheme.subtitle)
-                    }
-                }
-
-                Spacer()
-
-                Color.clear.frame(width: 36, height: 36)
+                .accessibilityLabel("Close WebView")
+                .padding(.top, 8)
+                .padding(.trailing, 12)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 10)
-            .background(AppTheme.background.opacity(0.95))
         }
         .background(Color.white.ignoresSafeArea())
     }
